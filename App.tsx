@@ -15,7 +15,6 @@ import { auth, signInWithGoogle, logout, database } from './firebase';
 import { ref, push, onValue, set, get, remove } from 'firebase/database';
 import { UserProfile, Order, OrderStatus, PortfolioItem, Notification, BlockStatus, AppUserMetadata } from './types';
 import { GAMES, DESIGN_PRICES, PROMO_CODE, PROMO_DISCOUNT, OWNER_EMAIL } from './constants';
-import { sendOrderToTelegram } from './services/telegramService';
 import { Language, translations } from './translations';
 
 // --- Localization Context ---
@@ -241,7 +240,6 @@ const OrderForm: React.FC<{ user: UserProfile }> = ({ user }) => {
       setSubmitting(true);
       const orderId = Math.random().toString(36).substring(7).toUpperCase();
       
-      // Build order object carefully to avoid undefined fields
       const newOrder: Order = {
         id: orderId,
         userId: user.uid,
@@ -260,25 +258,20 @@ const OrderForm: React.FC<{ user: UserProfile }> = ({ user }) => {
         createdAt: new Date().toISOString()
       };
 
-      // Add promo code only if valid and noPromo is not checked
       if (!noPromo && formData.promoCode) {
         newOrder.promoCode = formData.promoCode;
       }
 
-      // Save to Database
+      // 100% RELIABILITY: Only save to the database. 
+      // The Telegram message is now handled by a Firebase Cloud Function (Backend).
       await set(ref(database, `orders/${orderId}`), newOrder);
-      
-      // Dispatch Telegram Notification (Fire-and-forget)
-      sendOrderToTelegram(newOrder).catch(err => console.error("Telegram Error:", err));
       
       setDone(true);
       setTimeout(() => navigate('/my-orders'), 2000);
     } catch (error) {
       console.error("Critical submission error:", error);
       alert("Submission failed. Check your internet connection or try again later.");
-    } finally {
-      // If not successful, allow another attempt
-      if (!done) setSubmitting(false);
+      setSubmitting(false);
     }
   };
 
@@ -449,7 +442,6 @@ const OrderForm: React.FC<{ user: UserProfile }> = ({ user }) => {
                             onChange={e => {
                               const val = e.target.value;
                               setFormData(prev => ({ ...prev, promoCode: val }));
-                              // Typing in a code automatically ensures noPromo is false
                               if (val.length > 0) setNoPromo(false);
                             }}
                             className="w-full bg-black/40 border border-white/10 p-4 rounded-xl outline-none mb-2" 
@@ -469,7 +461,6 @@ const OrderForm: React.FC<{ user: UserProfile }> = ({ user }) => {
                           onChange={e => {
                             const checked = e.target.checked;
                             setNoPromo(checked);
-                            // If user checks 'No Promo', we strictly clear any code
                             if (checked) setFormData(prev => ({ ...prev, promoCode: '' }));
                           }} 
                           className="hidden" 

@@ -1,61 +1,69 @@
 
-import { TELEGRAM_CONFIG } from '../constants';
-import { Order } from '../types';
+/**
+ * ELBEK DESIGN - BACKEND NOTIFICATION SERVICE
+ * 
+ * IMPORTANT: This code is meant to be deployed as a Firebase Cloud Function.
+ * Direct frontend calls to Telegram are unreliable and insecure.
+ * 
+ * IMPLEMENTATION STEPS:
+ * 1. Initialize Firebase Functions in your project.
+ * 2. Copy the code below into your `functions/src/index.ts` file.
+ * 3. Deploy using `firebase deploy --only functions`.
+ */
+
+/* 
+// --- CLOUD FUNCTION CODE (FOR BACKEND DEPLOYMENT) ---
+
+import * as functions from 'firebase-functions';
+import * as admin from 'firebase-admin';
+import axios from 'axios';
+
+admin.initializeApp();
+
+const BOT_TOKEN = '7264338255:AAGE9iqGXeergNWkF5b7U43NQvGCwC5mi8w';
+const ADMIN_ID = '7714287797';
+
+export const onOrderCreated = functions.database.ref('/orders/{orderId}')
+    .onCreate(async (snapshot, context) => {
+        const order = snapshot.val();
+        
+        const messageText = `
+🚀 <b>Yangi Buyurtma! (Elbek Design)</b>
+-----------------------------
+👤 <b>Mijoz:</b> ${order.firstName} ${order.lastName || ''}
+📞 <b>Tel:</b> ${order.phoneNumber}
+📱 <b>Telegram:</b> ${order.telegramUsername}
+🎮 <b>O'yin:</b> ${order.game}
+🎨 <b>Turi:</b> ${order.designTypes?.join(', ') || 'Noma\'lum'}
+💰 <b>Narxi:</b> ${order.totalPrice?.toLocaleString() || 0} UZS
+🎟️ <b>Promokod:</b> ${order.promoCode || 'Yo\'q'}
+📅 <b>Sana:</b> ${new Date(order.createdAt).toLocaleString()}
+
+📝 <b>Xabar:</b>
+<i>${order.message || 'Tavsif yo\'q'}</i>
+-----------------------------
+✅ Holat: Tekshirilmoqda
+        `.trim();
+
+        try {
+            await axios.get(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+                params: {
+                    chat_id: ADMIN_ID,
+                    text: messageText,
+                    parse_mode: 'HTML'
+                }
+            });
+            console.log(`Notification sent for order ${order.id}`);
+        } catch (error) {
+            console.error("Telegram API Error:", error);
+        }
+    });
+*/
 
 /**
- * Sends order notifications to a Telegram bot.
- * Uses a GET request with URL parameters to bypass CORS preflight restrictions
- * that often block JSON POST requests from the browser to the Telegram API.
+ * Dummy export to prevent frontend build errors if the file is imported.
  */
-export const sendOrderToTelegram = async (order: Order) => {
-  // Helper to escape characters that might break the URL or Telegram HTML parsing
-  const escapeHTML = (str: string = '') => 
-    str.replace(/[&<>"']/g, (m) => ({
-      '&': '&amp;',
-      '<': '&lt;',
-      '>': '&gt;',
-      '"': '&quot;',
-      "'": '&#039;'
-    })[m] || m);
-
-  const messageText = `
-🚀 <b>New Order from Elbek Design!</b>
------------------------------
-👤 <b>User:</b> ${escapeHTML(order.firstName)} ${escapeHTML(order.lastName || '')}
-📧 <b>Email:</b> ${escapeHTML(order.userEmail)}
-📞 <b>Phone:</b> ${escapeHTML(order.phoneNumber)}
-📱 <b>Telegram:</b> ${escapeHTML(order.telegramUsername)}
-🎮 <b>Game:</b> ${escapeHTML(order.game)}
-🎨 <b>Designs:</b> ${escapeHTML(order.designTypes?.join(', ') || 'None')}
-💰 <b>Total Price:</b> ${order.totalPrice?.toLocaleString() || 0} UZS
-🎟️ <b>Promo:</b> ${escapeHTML(order.promoCode || 'None')}
-📅 <b>Date:</b> ${new Date(order.createdAt).toLocaleString()}
-
-📝 <b>Message:</b>
-<i>${escapeHTML(order.message || 'No description provided')}</i>
------------------------------
-✅ Status: Checking
-  `.trim();
-
-  try {
-    // Using GET request to avoid CORS preflight (OPTIONS) issues with api.telegram.org
-    const url = new URL(`https://api.telegram.org/bot${TELEGRAM_CONFIG.BOT_TOKEN}/sendMessage`);
-    url.searchParams.append('chat_id', TELEGRAM_CONFIG.ADMIN_ID);
-    url.searchParams.append('text', messageText);
-    url.searchParams.append('parse_mode', 'HTML');
-
-    // We use 'no-cors' mode to ensure the request is dispatched even if the browser 
-    // can't read the response due to Telegram's CORS policy.
-    const response = await fetch(url.toString(), { 
-      method: 'GET',
-      mode: 'no-cors' 
-    });
-    
-    // Note: with 'no-cors', response.ok will be false and response.status will be 0,
-    // but the request is actually sent to the server.
-    return true;
-  } catch (error) {
-    console.error("Telegram notify network error:", error);
-    return false;
-  }
+export const sendOrderToTelegram = async (order: any) => {
+  console.warn("Direct frontend Telegram notifications are disabled for reliability. Use Firebase Cloud Functions instead.");
+  return true;
 };
