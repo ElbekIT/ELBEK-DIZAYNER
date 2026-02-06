@@ -13,7 +13,7 @@ import { auth, signInWithGoogle, logout, database } from './firebase';
 import { ref, push, onValue, set, get, remove } from 'firebase/database';
 import { UserProfile, Order, OrderStatus, PortfolioItem, Notification, BlockStatus, AppUserMetadata } from './types';
 import { GAMES, DESIGN_PRICES, PROMO_CODE, PROMO_DISCOUNT, OWNER_EMAIL } from './constants';
-import { sendOrderToTelegram } from './services/telegramService';
+// import { sendOrderToTelegram } from './services/telegramService';
 
 // --- Shared Components ---
 
@@ -188,13 +188,6 @@ const OrderForm: React.FC<{ user: UserProfile }> = ({ user }) => {
       };
       // Direct Firebase update
       await set(ref(database, `orders/${orderId}`), newOrder);
-
-      setDone(true);
-
-
-
-
-      
       setDone(true);
       setTimeout(() => navigate('/my-orders'), 2000);
     } catch (error) {
