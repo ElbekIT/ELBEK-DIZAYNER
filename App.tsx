@@ -188,11 +188,11 @@ const OrderForm: React.FC<{ user: UserProfile }> = ({ user }) => {
         createdAt: new Date().toISOString()
       };
 
-      // Direct Firebase update
-      await set(ref(database, `orders/${orderId}`), newOrder);
-      
-      // Fire-and-forget Telegram notification to avoid blocking UI on network lag
-      sendOrderToTelegram(newOrder).catch(err => console.error("Notification Error:", err));
+     await set(ref(database, `orders/${orderId}`), newOrder);
+
+     setDone(true);
+     setTimeout(() => navigate('/my-orders'), 2000);
+
       
       setDone(true);
       setTimeout(() => navigate('/my-orders'), 2000);
