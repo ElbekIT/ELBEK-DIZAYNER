@@ -159,59 +159,59 @@ const OrderForm: React.FC<{ user: UserProfile }> = ({ user }) => {
     if (formData.designTypes.includes('Preview')) total += DESIGN_PRICES.PREVIEW;
     return total;
   }, [formData.designTypes]);
-const normalizedPromo = formData.promoCode.trim().toUpperCase();
 
-const hasDiscount =
-  !noPromo &&
-  normalizedPromo === PROMO_CODE;
+  const hasDiscount = !noPromo && formData.promoCode === PROMO_CODE;
+  const totalPrice = hasDiscount ? basePrice * (1 - PROMO_DISCOUNT) : basePrice;
 
-const totalPrice = hasDiscount
-  ? Math.round(basePrice * (1 - PROMO_DISCOUNT))
-  : basePrice;
+  const handleSubmit = async () => {
+    // Explicit validation before proceeding
+    if (!formData.paymentConfirmed || submitting) return;
+    
+    try {
+      setSubmitting(true);
+      const orderId = Math.random().toString(36).substring(7).toUpperCase();
+      
+      const newOrder: Order = {
+        id: orderId,
+        userId: user.uid,
+        userEmail: user.email,
+        userName: user.displayName,
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        gender: formData.gender,
+        phoneNumber: formData.phone,
+        telegramUsername: formData.telegram,
+        designTypes: formData.designTypes,
+        game: formData.game,
+        message: formData.message,
+        totalPrice,
+        promoCode: (noPromo || !formData.promoCode) ? undefined : formData.promoCode,
+        status: OrderStatus.CHECKING,
+        createdAt: new Date().toISOString()
+      };
 
-const handleSubmit = async () => {
-  if (!formData.paymentConfirmed || submitting) return;
+      console.log("Initiating order submission for ID:", orderId);
 
-  try {
-    setSubmitting(true);
-
-    const orderId = Math.random().toString(36).substring(7).toUpperCase();
-
-    const newOrder: Order = {
-      id: orderId,
-      userId: user.uid,
-      userEmail: user.email,
-      userName: user.displayName,
-      firstName: formData.firstName,
-      lastName: formData.lastName,
-      gender: formData.gender,
-      phoneNumber: formData.phone,
-      telegramUsername: formData.telegram,
-      designTypes: formData.designTypes,
-      game: formData.game,
-      message: formData.message,
-      totalPrice,
-      promoCode: noPromo ? null : (normalizedPromo || null),
-      status: OrderStatus.CHECKING,
-      createdAt: new Date().toISOString()
-    };
-
-    await set(ref(database, `orders/${orderId}`), newOrder);
-
-    const telegramResult = await sendOrderToTelegram(newOrder);
-    if (!telegramResult) {
-      console.warn('Telegram notification failed');
+      // 1. Permanent storage in Firebase (Must succeed)
+      await set(ref(database, `orders/${orderId}`), newOrder);
+      console.log("Database entry created successfully.");
+      
+      // 2. Telegram Dispatch (Fires asynchronously to avoid blocking user flow)
+      // Using 'no-cors' mode in telegramService ensures this won't throw a browser security error.
+      sendOrderToTelegram(newOrder).then(res => {
+        if (res) console.log("Telegram dispatch triggered successfully.");
+        else console.warn("Telegram dispatch reported a failure (check service logs).");
+      }).catch(e => console.error("Telegram async error:", e));
+      
+      // 3. UI Transition
+      setDone(true);
+      setTimeout(() => navigate('/my-orders'), 2000);
+    } catch (error) {
+      console.error("CRITICAL ORDER ERROR:", error);
+      alert("Submission Error: Could not save your order. Please check your internet connection.");
+      setSubmitting(false);
     }
-
-    setDone(true);
-    setTimeout(() => navigate('/my-orders'), 2000);
-  } catch (error) {
-    console.error('Critical submission failure:', error);
-    alert('Submission error. Please try again.');
-    setSubmitting(false);
-  }
-};
-
+  };
 
   if (showIntro) {
     return (
