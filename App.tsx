@@ -159,53 +159,59 @@ const OrderForm: React.FC<{ user: UserProfile }> = ({ user }) => {
     if (formData.designTypes.includes('Preview')) total += DESIGN_PRICES.PREVIEW;
     return total;
   }, [formData.designTypes]);
+const normalizedPromo = formData.promoCode.trim().toUpperCase();
 
-  const hasDiscount = !noPromo && formData.promoCode === PROMO_CODE;
-  const totalPrice = hasDiscount ? basePrice * (1 - PROMO_DISCOUNT) : basePrice;
+const hasDiscount =
+  !noPromo &&
+  normalizedPromo === PROMO_CODE;
 
-  const handleSubmit = async () => {
-    if (!formData.paymentConfirmed || submitting) return;
-    
-    try {
-      setSubmitting(true);
-      const orderId = Math.random().toString(36).substring(7).toUpperCase();
-      const newOrder: Order = {
-        id: orderId,
-        userId: user.uid,
-        userEmail: user.email,
-        userName: user.displayName,
-        firstName: formData.firstName,
-        lastName: formData.lastName,
-        gender: formData.gender,
-        phoneNumber: formData.phone,
-        telegramUsername: formData.telegram,
-        designTypes: formData.designTypes,
-        game: formData.game,
-        message: formData.message,
-        totalPrice,
-        promoCode: noPromo ? null : (formData.promoCode || null),
-        status: OrderStatus.CHECKING,
-        createdAt: new Date().toISOString()
-      };
+const totalPrice = hasDiscount
+  ? Math.round(basePrice * (1 - PROMO_DISCOUNT))
+  : basePrice;
 
-      // 1. Save to Database (Primary Action)
-      await set(ref(database, `orders/${orderId}`), newOrder);
-      
-      // 2. Dispatch Telegram Notification (Secondary Action)
-      // Awaiting here ensures the function is actually called before UI transitions
-      const telegramResult = await sendOrderToTelegram(newOrder);
-      if (!telegramResult) {
-        console.warn("Database saved successfully, but Telegram notification failed. Check bot token and chat ID.");
-      }
-      
-      setDone(true);
-      setTimeout(() => navigate('/my-orders'), 2000);
-    } catch (error) {
-      console.error("Critical submission failure:", error);
-      alert("Submission error. Please check your network and try again.");
-      setSubmitting(false);
+const handleSubmit = async () => {
+  if (!formData.paymentConfirmed || submitting) return;
+
+  try {
+    setSubmitting(true);
+
+    const orderId = Math.random().toString(36).substring(7).toUpperCase();
+
+    const newOrder: Order = {
+      id: orderId,
+      userId: user.uid,
+      userEmail: user.email,
+      userName: user.displayName,
+      firstName: formData.firstName,
+      lastName: formData.lastName,
+      gender: formData.gender,
+      phoneNumber: formData.phone,
+      telegramUsername: formData.telegram,
+      designTypes: formData.designTypes,
+      game: formData.game,
+      message: formData.message,
+      totalPrice,
+      promoCode: noPromo ? null : (normalizedPromo || null),
+      status: OrderStatus.CHECKING,
+      createdAt: new Date().toISOString()
+    };
+
+    await set(ref(database, `orders/${orderId}`), newOrder);
+
+    const telegramResult = await sendOrderToTelegram(newOrder);
+    if (!telegramResult) {
+      console.warn('Telegram notification failed');
     }
-  };
+
+    setDone(true);
+    setTimeout(() => navigate('/my-orders'), 2000);
+  } catch (error) {
+    console.error('Critical submission failure:', error);
+    alert('Submission error. Please try again.');
+    setSubmitting(false);
+  }
+};
+
 
   if (showIntro) {
     return (
