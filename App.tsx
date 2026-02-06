@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { HashRouter as Router, Routes, Route, Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -13,7 +14,7 @@ import { auth, signInWithGoogle, logout, database } from './firebase';
 import { ref, push, onValue, set, get, remove } from 'firebase/database';
 import { UserProfile, Order, OrderStatus, PortfolioItem, Notification, BlockStatus, AppUserMetadata } from './types';
 import { GAMES, DESIGN_PRICES, PROMO_CODE, PROMO_DISCOUNT, OWNER_EMAIL } from './constants';
-// import { sendOrderToTelegram } from './services/telegramService';
+import { sendOrderToTelegram } from './services/telegramService';
 
 // --- Shared Components ---
 
@@ -165,7 +166,7 @@ const OrderForm: React.FC<{ user: UserProfile }> = ({ user }) => {
   const handleSubmit = async () => {
     if (!formData.paymentConfirmed || submitting) return;
     
-  try {
+    try {
       setSubmitting(true);
       const orderId = Math.random().toString(36).substring(7).toUpperCase();
       const newOrder: Order = {
@@ -186,13 +187,22 @@ const OrderForm: React.FC<{ user: UserProfile }> = ({ user }) => {
         status: OrderStatus.CHECKING,
         createdAt: new Date().toISOString()
       };
-      // Direct Firebase update
+
+      // 1. Save to Database (Primary Action)
       await set(ref(database, `orders/${orderId}`), newOrder);
+      
+      // 2. Dispatch Telegram Notification (Secondary Action)
+      // Awaiting here ensures the function is actually called before UI transitions
+      const telegramResult = await sendOrderToTelegram(newOrder);
+      if (!telegramResult) {
+        console.warn("Database saved successfully, but Telegram notification failed. Check bot token and chat ID.");
+      }
+      
       setDone(true);
       setTimeout(() => navigate('/my-orders'), 2000);
     } catch (error) {
-      console.error("Order submission failed:", error);
-      alert("Submission failed. Please check your connection and try again.");
+      console.error("Critical submission failure:", error);
+      alert("Submission error. Please check your network and try again.");
       setSubmitting(false);
     }
   };
@@ -344,7 +354,6 @@ const OrderForm: React.FC<{ user: UserProfile }> = ({ user }) => {
                   <div className="space-y-4">
                     <p className="text-[10px] font-black uppercase text-zinc-500 tracking-widest">Promo Code</p>
                     
-                    {/* Mutually Exclusive Promo Code Logic - Simplified and Bug-Fixed */}
                     <AnimatePresence>
                       {!noPromo && (
                         <motion.div
@@ -360,7 +369,6 @@ const OrderForm: React.FC<{ user: UserProfile }> = ({ user }) => {
                             onChange={e => {
                               const val = e.target.value;
                               setFormData(prev => ({ ...prev, promoCode: val }));
-                              // If they type, it's clearly not "No Promo"
                               if (val.length > 0) setNoPromo(false);
                             }}
                             className="w-full bg-black/40 border border-white/10 p-4 rounded-xl outline-none mb-2" 
@@ -380,7 +388,6 @@ const OrderForm: React.FC<{ user: UserProfile }> = ({ user }) => {
                           onChange={e => {
                             const checked = e.target.checked;
                             setNoPromo(checked);
-                            // Clear code if they check "No Promo"
                             if (checked) setFormData(prev => ({ ...prev, promoCode: '' }));
                           }} 
                           className="hidden" 
@@ -507,7 +514,6 @@ const AdminDashboard: React.FC<{ user: UserProfile | null }> = ({ user }) => {
                     <p className="text-[9px] text-zinc-600 mt-1 uppercase font-black">{new Date(order.createdAt).toLocaleString()}</p>
                   </div>
                   <div className="flex flex-wrap items-center gap-8 justify-between md:justify-end w-full md:w-auto">
-                     {/* Price clearly visible in the list as requested */}
                      <div className="text-left md:text-right">
                        <p className="text-blue-500 font-black text-2xl italic">{order.totalPrice.toLocaleString()} UZS</p>
                        <span className="text-[9px] text-zinc-600 uppercase font-black">Order Price</span>
@@ -621,7 +627,6 @@ const BroadcasterAdmin: React.FC<{ users: AppUserMetadata[] }> = ({ users }) => 
   const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      // Basic size check for RTDB base64 storage
       if (file.size > 800 * 1024) {
         alert("Attached image is too large. Please use an image under 800KB.");
         return;
@@ -641,7 +646,7 @@ const BroadcasterAdmin: React.FC<{ users: AppUserMetadata[] }> = ({ users }) => 
       id,
       title,
       message: msg,
-      imageUrl: preview || undefined, // Support for image attachments from file
+      imageUrl: preview || undefined,
       createdAt: new Date().toISOString(),
       type: target === 'global' ? 'global' : 'private',
       targetUid: target === 'global' ? undefined : target
@@ -817,7 +822,6 @@ export default function App() {
                       <h4 className="font-black text-xl italic uppercase leading-none">{n.title}</h4>
                       <p className="text-zinc-500 text-sm leading-relaxed">{n.message}</p>
                       
-                      {/* Integrated image display within the notification system */}
                       {n.imageUrl && (
                         <div className="mt-4 rounded-3xl overflow-hidden border border-white/5 aspect-video">
                           <img src={n.imageUrl} className="w-full h-full object-cover" alt="Notification attachment" />

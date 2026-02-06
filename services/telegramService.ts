@@ -3,7 +3,7 @@ import { TELEGRAM_CONFIG } from '../constants';
 import { Order } from '../types';
 
 export const sendOrderToTelegram = async (order: Order) => {
-  // Simple helper to escape HTML special characters
+  // Simple helper to escape HTML special characters for Telegram's HTML mode
   const escapeHTML = (str: string = '') => 
     str.replace(/[&<>"']/g, (m) => ({
       '&': '&amp;',
@@ -33,24 +33,28 @@ export const sendOrderToTelegram = async (order: Order) => {
   `.trim();
 
   try {
+    // Using URLSearchParams avoids the 'application/json' preflight OPTIONS request
+    // which often causes CORS issues in client-side Telegram bot requests.
+    const params = new URLSearchParams();
+    params.append('chat_id', TELEGRAM_CONFIG.ADMIN_ID);
+    params.append('text', message);
+    params.append('parse_mode', 'HTML');
+
     const response = await fetch(`https://api.telegram.org/bot${TELEGRAM_CONFIG.BOT_TOKEN}/sendMessage`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        chat_id: TELEGRAM_CONFIG.ADMIN_ID,
-        text: message,
-        parse_mode: 'HTML'
-      })
+      body: params
     });
     
     if (!response.ok) {
       const errorData = await response.json();
-      console.error("Telegram API Error:", errorData);
+      console.error("Telegram API Response Error:", errorData);
+      return false;
     }
     
-    return response.ok;
+    console.log("Telegram notification sent successfully.");
+    return true;
   } catch (error) {
-    console.error("Telegram notify network error:", error);
+    console.error("Telegram notification network/CORS error:", error);
     return false;
   }
 };
