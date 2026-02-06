@@ -165,7 +165,7 @@ const OrderForm: React.FC<{ user: UserProfile }> = ({ user }) => {
   const handleSubmit = async () => {
     if (!formData.paymentConfirmed || submitting) return;
     
-    try {
+  try {
       setSubmitting(true);
       const orderId = Math.random().toString(36).substring(7).toUpperCase();
       const newOrder: Order = {
@@ -186,7 +186,6 @@ const OrderForm: React.FC<{ user: UserProfile }> = ({ user }) => {
         status: OrderStatus.CHECKING,
         createdAt: new Date().toISOString()
       };
-
       // Direct Firebase update
       await set(ref(database, `orders/${orderId}`), newOrder);
       
