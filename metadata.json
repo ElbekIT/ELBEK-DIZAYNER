@@ -1,0 +1,8 @@
+{
+  "name": "Copy of Elbek Design - Premium Ordering System",
+  "description": "A high-end, animated design ordering platform for YouTube and gaming graphics, featuring Firebase authentication, automated Telegram notifications, and a secure portfolio showcase.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
