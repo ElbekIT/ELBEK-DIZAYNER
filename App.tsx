@@ -183,7 +183,7 @@ const OrderForm: React.FC<{ user: UserProfile }> = ({ user }) => {
         game: formData.game,
         message: formData.message,
         totalPrice,
-        promoCode: noPromo ? null : (formData.promoCode || null),
+        promoCode: (noPromo || !formData.promoCode) ? undefined : formData.promoCode,
         status: OrderStatus.CHECKING,
         createdAt: new Date().toISOString()
       };
