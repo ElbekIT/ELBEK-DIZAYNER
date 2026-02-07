@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo, useRef, createContext, useContext } from 'react';
 import { HashRouter as Router, Routes, Route, Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -989,4 +988,4 @@ const MyOrdersPage: React.FC<{ user: UserProfile }> = ({ user }) => {
       )}
     </div>
   );
-};  ko'dimni ko'r
+}; 
