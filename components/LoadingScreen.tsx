@@ -37,7 +37,7 @@ export const LoadingScreen: React.FC<{ onComplete: () => void }> = ({ onComplete
                 transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
                 className="absolute inset-0 border-t-2 border-blue-500 rounded-full"
              />
-             <span className="text-2xl font-black text-white italic">ED</span>
+            <img src="/img/EDDIZAYN.jpg" alt="ED Logo" className="w-20 h-20 object-contain" />
           </div>
         </div>
         
