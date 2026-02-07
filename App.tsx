@@ -508,41 +508,75 @@ const OrderForm: React.FC<{ user: UserProfile }> = ({ user }) => {
     </div>
   );
 };
-
 // --- Portfolio View ---
 
 const Portfolio: React.FC = () => {
   const { t } = useTranslation();
-  const [items, setItems] = useState<PortfolioItem[]>([]);
+  const [categories, setCategories] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    return onValue(ref(database, 'portfolio'), (snapshot) => {
-      setItems(Object.values(snapshot.val() || {}) as PortfolioItem[]);
+    return onValue(ref(database, 'portfolio/categories'), (snapshot) => {
+      const data = snapshot.val() || {};
+      setCategories(Object.entries(data));
       setLoading(false);
     });
   }, []);
 
   return (
     <div className="pt-32 pb-20 px-6 max-w-7xl mx-auto">
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="text-center mb-16">
-        <h2 className="text-4xl md:text-5xl font-black mb-4 uppercase tracking-tighter italic">{t.portfolio.title}</h2>
-        <p className="text-zinc-500 max-w-2xl mx-auto uppercase tracking-widest text-[10px] font-black">{t.portfolio.subtitle}</p>
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="text-center mb-16"
+      >
+        <h2 className="text-4xl md:text-5xl font-black mb-4 uppercase tracking-tighter italic">
+          {t.portfolio.title}
+        </h2>
+        <p className="text-zinc-500 max-w-2xl mx-auto uppercase tracking-widest text-[10px] font-black">
+          {t.portfolio.subtitle}
+        </p>
       </motion.div>
 
       {loading ? (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {[1,2,3,4,5,6].map(i => <div key={i} className="aspect-video bg-zinc-900 animate-pulse rounded-2xl" />)}
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {items.map((item) => (
-            <motion.div key={item.id} initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}>
-              <ProtectedImage src={item.imageUrl} alt={item.title} className="aspect-video rounded-3xl border border-white/5" />
-              <p className="mt-4 text-[10px] font-black tracking-widest text-zinc-500 uppercase italic text-center">{item.title}</p>
-            </motion.div>
+          {[1,2,3,4,5,6].map(i => (
+            <div key={i} className="aspect-video bg-zinc-900 animate-pulse rounded-2xl" />
           ))}
         </div>
+      ) : (
+        categories.map(([categoryId, category]: any) => (
+          <div key={categoryId} className="mb-24">
+            <h3 className="text-3xl font-black uppercase italic mb-8">
+              {category.name || categoryId}
+            </h3>
+
+            {category.items ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {Object.values(category.items).map((item: any) => (
+                  <motion.div
+                    key={item.id}
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                  >
+                    <ProtectedImage
+                      src={item.imageUrl}
+                      alt={item.title}
+                      className="aspect-video rounded-3xl border border-white/5"
+                    />
+                    <p className="mt-3 text-[10px] font-black uppercase tracking-widest text-zinc-500 text-center">
+                      {item.title}
+                    </p>
+                  </motion.div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-zinc-600 uppercase text-xs font-black">
+                No items in this category
+              </p>
+            )}
+          </div>
+        ))
       )}
     </div>
   );
@@ -558,8 +592,8 @@ const AdminDashboard: React.FC<{ user: UserProfile | null }> = ({ user }) => {
 
   useEffect(() => {
     if (!user?.isOwner) return;
-    onValue(ref(database, 'users'), s => setUsers(Object.values(s.val() || {}) as AppUserMetadata[]));
-    onValue(ref(database, 'orders'), s => setOrders((Object.values(s.val() || {}) as Order[]).sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())));
+    onValue(ref(database, 'users'), (s: any) => setUsers(Object.values(s.val() || {}) as AppUserMetadata[]));
+    onValue(ref(database, 'orders'), (s: any) => setOrders((Object.values(s.val() || {}) as Order[]).sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())));
   }, [user]);
 
   const updateStatus = async (orderId: string, status: OrderStatus) => {
@@ -576,7 +610,7 @@ const AdminDashboard: React.FC<{ user: UserProfile | null }> = ({ user }) => {
           <p className="text-zinc-600 uppercase tracking-widest text-[10px] font-black mt-2">{t.admin.subtitle}</p>
         </div>
         <div className="flex bg-zinc-900 p-2 rounded-2xl border border-white/5 gap-1">
-          {['orders', 'portfolio', 'users', 'broadcast'].map(tab => (
+          {['orders', 'portfolio', 'users', 'broadcast'].map((tab) => (
             <button key={tab} onClick={() => setActiveTab(tab as any)} className={`px-6 py-4 rounded-xl text-xs font-black uppercase transition-all ${activeTab === tab ? 'bg-blue-600 text-white' : 'text-zinc-500 hover:text-white'}`}>{t.admin.tabs[tab as keyof typeof t.admin.tabs]}</button>
           ))}
         </div>
@@ -586,7 +620,7 @@ const AdminDashboard: React.FC<{ user: UserProfile | null }> = ({ user }) => {
         <motion.div key={activeTab}>
           {activeTab === 'orders' && (
             <div className="grid grid-cols-1 gap-4">
-              {orders.map(order => (
+              {orders.map((order) => (
                 <div key={order.id} className="bg-zinc-900/50 border border-white/5 p-8 rounded-[2rem] flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-2">
@@ -605,7 +639,7 @@ const AdminDashboard: React.FC<{ user: UserProfile | null }> = ({ user }) => {
                      <div className="flex items-center gap-4">
                         <select 
                           value={order.status} 
-                          onChange={e => updateStatus(order.id, e.target.value as OrderStatus)}
+                          onChange={(e) => updateStatus(order.id, e.target.value as OrderStatus)}
                           className="bg-black border border-white/10 p-3 rounded-lg text-xs font-black uppercase text-zinc-400 outline-none"
                         >
                           <option value={OrderStatus.CHECKING}>{t.common.checking}</option>
@@ -630,11 +664,32 @@ const AdminDashboard: React.FC<{ user: UserProfile | null }> = ({ user }) => {
 
 const PortfolioManagerAdmin = () => {
   const { t } = useTranslation();
+  const CATEGORIES = ['Preview', 'Film', 'Logo', 'Banner', 'Avatar'];
+  const [categories, setCategories] = useState<string[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [items, setItems] = useState<PortfolioItem[]>([]);
   const [title, setTitle] = useState('');
   const [preview, setPreview] = useState<string | null>(null);
+  const [newCategoryName, setNewCategoryName] = useState('');
+  const [showNewCategoryForm, setShowNewCategoryForm] = useState(false);
 
-  useEffect(() => onValue(ref(database, 'portfolio'), s => setItems(Object.values(s.val() || {}))), []);
+  useEffect(() => {
+    onValue(ref(database, 'portfolio/categories'), (s: any) => {
+      const data = s.val() || {};
+      const cats = Object.keys(data);
+      setCategories(cats);
+      if (cats.length > 0 && !selectedCategory) {
+        setSelectedCategory(cats[0]);
+      }
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!selectedCategory) return;
+    onValue(ref(database, `portfolio/categories/${selectedCategory}/items`), (s: any) => {
+      setItems(Object.values(s.val() || {}) as PortfolioItem[]);
+    });
+  }, [selectedCategory]);
 
   const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -645,31 +700,151 @@ const PortfolioManagerAdmin = () => {
     }
   };
 
-  const handleAdd = async () => {
-    if (!title || !preview) return;
+  const handleAddItem = async () => {
+    if (!title || !preview || !selectedCategory) return;
     const id = Math.random().toString(36).substring(7);
-    await set(ref(database, `portfolio/${id}`), { id, title, imageUrl: preview, createdAt: new Date().toISOString() });
-    setTitle(''); setPreview(null);
+    await set(ref(database, `portfolio/categories/${selectedCategory}/items/${id}`), {
+      id,
+      title,
+      imageUrl: preview,
+      createdAt: new Date().toISOString()
+    });
+    setTitle('');
+    setPreview(null);
+  };
+
+  const handleDeleteItem = async (itemId: string) => {
+    if (!selectedCategory) return;
+    await remove(ref(database, `portfolio/categories/${selectedCategory}/items/${itemId}`));
+  };
+
+  const handleCreateCategory = async () => {
+    if (!newCategoryName.trim()) return;
+    const categoryId = newCategoryName.toLowerCase().replace(/\s+/g, '_');
+    await set(ref(database, `portfolio/categories/${categoryId}`), {
+      name: newCategoryName,
+      createdAt: new Date().toISOString()
+    });
+    setNewCategoryName('');
+    setShowNewCategoryForm(false);
+  };
+
+  const handleDeleteCategory = async () => {
+    if (!selectedCategory) return;
+    await remove(ref(database, `portfolio/categories/${selectedCategory}`));
+    setSelectedCategory(null);
   };
 
   return (
     <div className="space-y-8">
-      <div className="bg-zinc-900 p-8 rounded-3xl space-y-4">
-        <input type="text" placeholder={t.admin.designTitle} value={title} onChange={e => setTitle(e.target.value)} className="w-full bg-black p-4 rounded-xl outline-none" />
-        <label className="block w-full h-48 border-2 border-dashed border-white/10 rounded-2xl cursor-pointer hover:bg-zinc-800 transition-all flex items-center justify-center overflow-hidden">
-          {preview ? <img src={preview} className="w-full h-full object-cover" /> : <Upload className="text-zinc-600" />}
-          <input type="file" className="hidden" accept="image/*" onChange={handleFile} />
-        </label>
-        <button onClick={handleAdd} className="w-full py-4 bg-blue-600 font-black uppercase rounded-xl">{t.admin.portfolioAdd}</button>
-      </div>
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {items.map(item => (
-          <div key={item.id} className="relative group rounded-xl overflow-hidden aspect-video">
-             <img src={item.imageUrl} className="w-full h-full object-cover" />
-             <button onClick={() => remove(ref(database, `portfolio/${item.id}`))} className="absolute top-2 right-2 p-2 bg-red-600 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 size={16} /></button>
+      <div className="bg-zinc-900 p-8 rounded-3xl space-y-4 border border-white/5">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-2xl font-black uppercase italic">Categories</h3>
+          <button
+            onClick={() => setShowNewCategoryForm(!showNewCategoryForm)}
+            className="px-4 py-2 bg-blue-600 text-white font-black rounded-lg uppercase text-xs"
+          >
+            {showNewCategoryForm ? 'Cancel' : '+ New'}
+          </button>
+        </div>
+
+        {showNewCategoryForm && (
+          <div className="space-y-3 p-4 bg-black/50 rounded-xl border border-white/5">
+            <input
+              type="text"
+              placeholder="Category name"
+              value={newCategoryName}
+              onChange={(e) => setNewCategoryName(e.target.value)}
+              className="w-full bg-black p-3 rounded-lg outline-none border border-white/10 text-sm"
+            />
+            <button
+              onClick={handleCreateCategory}
+              disabled={!newCategoryName.trim()}
+              className="w-full py-2 bg-green-600 font-black rounded-lg uppercase text-xs disabled:opacity-50"
+            >
+              Create Category
+            </button>
           </div>
-        ))}
+        )}
+
+        <div className="flex flex-wrap gap-2">
+          {categories.map((cat) => (
+            <button
+              key={cat}
+              onClick={() => setSelectedCategory(cat)}
+              className={`px-4 py-2 rounded-lg text-xs font-black uppercase transition-all ${
+                selectedCategory === cat
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'
+              }`}
+            >
+              {cat}
+            </button>
+          ))}
+          {categories.length === 0 && (
+            <p className="text-zinc-600 text-sm uppercase font-black">No categories yet</p>
+          )}
+        </div>
+
+        {selectedCategory && (
+          <button
+            onClick={handleDeleteCategory}
+            className="w-full py-2 bg-red-600/20 text-red-500 font-black rounded-lg border border-red-500/20 uppercase text-xs hover:bg-red-600/30 transition-all"
+          >
+            Delete Category
+          </button>
+        )}
       </div>
+
+      {selectedCategory && (
+        <div className="bg-zinc-900 p-8 rounded-3xl space-y-4 border border-white/5">
+          <h3 className="text-2xl font-black uppercase italic mb-4">Add Item to {selectedCategory}</h3>
+          <input
+            type="text"
+            placeholder="Item title"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            className="w-full bg-black p-4 rounded-xl outline-none border border-white/10"
+          />
+          <label className="block w-full h-48 border-2 border-dashed border-white/10 rounded-2xl cursor-pointer hover:bg-zinc-800 transition-all flex items-center justify-center overflow-hidden">
+            {preview ? (
+              <img src={preview} className="w-full h-full object-cover" alt="preview" />
+            ) : (
+              <Upload className="text-zinc-600" />
+            )}
+            <input type="file" className="hidden" accept="image/*" onChange={handleFile} />
+          </label>
+          <button
+            onClick={handleAddItem}
+            disabled={!title || !preview}
+            className="w-full py-4 bg-blue-600 font-black uppercase rounded-xl disabled:opacity-50"
+          >
+            Add Item
+          </button>
+        </div>
+      )}
+
+      {selectedCategory && items.length > 0 && (
+        <div className="bg-zinc-900 p-8 rounded-3xl border border-white/5">
+          <h3 className="text-2xl font-black uppercase italic mb-6">Items in {selectedCategory}</h3>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {items.map((item) => (
+              <div key={item.id} className="relative group rounded-xl overflow-hidden aspect-video">
+                <img src={item.imageUrl} className="w-full h-full object-cover" alt={item.title} />
+                <button
+                  onClick={() => handleDeleteItem(item.id)}
+                  className="absolute top-2 right-2 p-2 bg-red-600 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
+                >
+                  <Trash2 size={16} />
+                </button>
+                <div className="absolute bottom-0 left-0 right-0 bg-black/70 p-2">
+                  <p className="text-[8px] font-black uppercase text-white truncate">{item.title}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -677,7 +852,7 @@ const PortfolioManagerAdmin = () => {
 const UserModerationAdmin = () => {
   const { t } = useTranslation();
   const [users, setUsers] = useState<AppUserMetadata[]>([]);
-  useEffect(() => onValue(ref(database, 'users'), s => setUsers(Object.values(s.val() || {}))), []);
+  useEffect(() => onValue(ref(database, 'users'), (s: any) => setUsers(Object.values(s.val() || {}))), []);
 
   const toggleBlock = async (uid: string, current: boolean) => {
     await set(ref(database, `users/${uid}/blockStatus`), { isBlocked: !current, blockedUntil: !current ? -1 : 0 });
@@ -685,16 +860,16 @@ const UserModerationAdmin = () => {
 
   return (
     <div className="space-y-3">
-      {users.map(u => (
+      {users.map((u) => (
         <div key={u.uid} className="bg-zinc-900 p-4 rounded-2xl flex justify-between items-center">
           <div className="flex items-center gap-4">
-            <img src={u.photoURL} className="w-10 h-10 rounded-full" />
+            <img src={u.photoURL} className="w-10 h-10 rounded-full" alt={u.displayName} />
             <div>
               <p className="font-bold">{u.displayName}</p>
               <p className="text-[10px] text-zinc-500 uppercase">{u.email}</p>
             </div>
           </div>
-          <button onClick={() => toggleBlock(u.uid, !!u.blockStatus?.isBlocked)} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase ${u.blockStatus?.isBlocked ? t.admin.userUnblock : t.admin.userBlock} `}>
+          <button onClick={() => toggleBlock(u.uid, !!u.blockStatus?.isBlocked)} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase ${u.blockStatus?.isBlocked ? 'bg-green-600/20 text-green-500' : 'bg-red-600/20 text-red-500'}`}>
             {u.blockStatus?.isBlocked ? t.admin.userUnblock : t.admin.userBlock}
           </button>
         </div>
@@ -728,7 +903,7 @@ const BroadcasterAdmin: React.FC<{ users: AppUserMetadata[] }> = ({ users }) => 
     if (!title || !msg) return;
     setIsSending(true);
     const id = Math.random().toString(36).substring(7);
-    
+
     const notification: Notification = {
       id,
       title,
@@ -740,9 +915,9 @@ const BroadcasterAdmin: React.FC<{ users: AppUserMetadata[] }> = ({ users }) => 
     };
 
     const path = target === 'global' ? `notifications/global/${id}` : `notifications/private/${target}/${id}`;
-    
+
     await set(ref(database, path), notification);
-    
+
     setTitle('');
     setMsg('');
     setPreview(null);
@@ -755,20 +930,24 @@ const BroadcasterAdmin: React.FC<{ users: AppUserMetadata[] }> = ({ users }) => 
       <div className="flex flex-col md:flex-row gap-4">
         <div className="flex-1">
           <p className="text-[10px] text-zinc-600 font-black uppercase mb-2 ml-1">{t.admin.transmissionTarget}</p>
-          <select value={target} onChange={e => setTarget(e.target.value)} className="w-full bg-black p-4 rounded-xl outline-none text-zinc-400 font-black uppercase text-xs border border-white/5">
+          <select value={target} onChange={(e) => setTarget(e.target.value)} className="w-full bg-black p-4 rounded-xl outline-none text-zinc-400 font-black uppercase text-xs border border-white/5">
             <option value="global">{t.admin.broadcastAll}</option>
-            {users.map(u => <option key={u.uid} value={u.uid}>{u.displayName}</option>)}
+            {users.map((u) => (
+              <option key={u.uid} value={u.uid}>
+                {u.displayName}
+              </option>
+            ))}
           </select>
         </div>
         <div className="flex-1">
           <p className="text-[10px] text-zinc-600 font-black uppercase mb-2 ml-1">{t.admin.headline}</p>
-          <input type="text" placeholder={t.admin.headline} value={title} onChange={e => setTitle(e.target.value)} className="w-full bg-black p-4 rounded-xl outline-none border border-white/5" />
+          <input type="text" placeholder={t.admin.headline} value={title} onChange={(e) => setTitle(e.target.value)} className="w-full bg-black p-4 rounded-xl outline-none border border-white/5" />
         </div>
       </div>
-      
+
       <div>
         <p className="text-[10px] text-zinc-600 font-black uppercase mb-2 ml-1">{t.admin.messageContent}</p>
-        <textarea placeholder={t.admin.messageContent} value={msg} onChange={e => setMsg(e.target.value)} className="w-full h-32 bg-black p-4 rounded-xl outline-none resize-none border border-white/5" />
+        <textarea placeholder={t.admin.messageContent} value={msg} onChange={(e) => setMsg(e.target.value)} className="w-full h-32 bg-black p-4 rounded-xl outline-none resize-none border border-white/5" />
       </div>
 
       <div className="space-y-2">
@@ -776,7 +955,7 @@ const BroadcasterAdmin: React.FC<{ users: AppUserMetadata[] }> = ({ users }) => 
         <div className="flex flex-col md:flex-row gap-4 items-start">
           <label className="flex flex-col items-center justify-center w-40 h-28 border-2 border-dashed border-white/10 rounded-2xl cursor-pointer hover:bg-zinc-800 transition-all group relative overflow-hidden">
             {preview ? (
-              <img src={preview} className="w-full h-full object-cover" />
+              <img src={preview} className="w-full h-full object-cover" alt="preview" />
             ) : (
               <>
                 <ImageIcon className="text-zinc-600 group-hover:text-blue-500 mb-1" size={20} />
@@ -786,7 +965,9 @@ const BroadcasterAdmin: React.FC<{ users: AppUserMetadata[] }> = ({ users }) => 
             <input type="file" className="hidden" accept="image/*" onChange={handleFile} />
           </label>
           {preview && (
-            <button onClick={() => setPreview(null)} className="text-[9px] font-black uppercase text-red-500 hover:text-red-400 transition-colors">{t.admin.discardImage}</button>
+            <button onClick={() => setPreview(null)} className="text-[9px] font-black uppercase text-red-500 hover:text-red-400 transition-colors">
+              {t.admin.discardImage}
+            </button>
           )}
         </div>
       </div>
@@ -797,152 +978,6 @@ const BroadcasterAdmin: React.FC<{ users: AppUserMetadata[] }> = ({ users }) => 
     </div>
   );
 };
-
-// --- Main App Logic ---
-
-export default function App() {
-  const [language, setLanguage] = useState<Language>(() => (localStorage.getItem('lang') as Language) || 'uz-Latn');
-  const [loading, setLoading] = useState(true);
-  const [user, setUser] = useState<UserProfile | null>(null);
-  const [blockStatus, setBlockStatus] = useState<BlockStatus | null>(null);
-  const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [readIds, setReadIds] = useState<string[]>([]);
-  const [showNotifications, setShowNotifications] = useState(false);
-
-  useEffect(() => {
-    localStorage.setItem('lang', language);
-  }, [language]);
-
-  const t = useMemo(() => translations[language], [language]);
-
-  useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged(async (fireUser) => {
-      if (fireUser) {
-        const profile: UserProfile = {
-          uid: fireUser.uid,
-          email: fireUser.email || '',
-          displayName: fireUser.displayName || 'User',
-          photoURL: fireUser.photoURL || `https://ui-avatars.com/api/?name=${fireUser.displayName}&background=random`,
-          isOwner: fireUser.email === OWNER_EMAIL
-        };
-        setUser(profile);
-
-        const snap = await get(ref(database, `users/${fireUser.uid}`));
-        const data = snap.val() as AppUserMetadata | null;
-        if (data?.blockStatus?.isBlocked) setBlockStatus(data.blockStatus);
-        if (data?.readNotifications) setReadIds(data.readNotifications);
-
-        await set(ref(database, `users/${fireUser.uid}`), {
-          ...profile, lastLogin: new Date().toISOString(),
-          blockStatus: data?.blockStatus || null,
-          readNotifications: data?.readNotifications || []
-        });
-
-        onValue(ref(database, 'notifications/global'), s1 => {
-          const gn = Object.values(s1.val() || {}) as Notification[];
-          onValue(ref(database, `notifications/private/${fireUser.uid}`), s2 => {
-            const pn = Object.values(s2.val() || {}) as Notification[];
-            setNotifications([...gn, ...pn].sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
-          });
-        });
-      } else {
-        setUser(null); setBlockStatus(null); setNotifications([]);
-      }
-    });
-    return () => unsubscribe();
-  }, []);
-
-  const unreadCount = useMemo(() => notifications.filter(n => !readIds.includes(n.id)).length, [notifications, readIds]);
-
-  const markRead = async (id: string) => {
-    if (!user || readIds.includes(id)) return;
-    const newReadIds = [...readIds, id];
-    setReadIds(newReadIds);
-    await set(ref(database, `users/${user.uid}/readNotifications`), newReadIds);
-  };
-
-  if (loading) return (
-    <LanguageContext.Provider value={{ language, setLanguage, t }}>
-      <LoadingScreen onComplete={() => setLoading(false)} />
-    </LanguageContext.Provider>
-  );
-
-  return (
-    <LanguageContext.Provider value={{ language, setLanguage, t }}>
-      <Router>
-        <div className="min-h-screen bg-[#050505]">
-          {blockStatus?.isBlocked && <BlockedOverlay status={blockStatus} />}
-          <Navbar user={user} unreadCount={unreadCount} onToggleNotifications={() => setShowNotifications(true)} />
-          
-          <Routes>
-            <Route path="/" element={
-              <div className="relative">
-                <section className="min-h-screen flex flex-col items-center justify-center px-6 pt-20 overflow-hidden">
-                  <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[1000px] h-[1000px] bg-blue-600/5 blur-[160px] rounded-full pointer-events-none" />
-                  <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="text-center z-10">
-                    <motion.h2 initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-blue-500 font-black uppercase tracking-[0.4em] text-xs mb-6">{t.hero.greeting}</motion.h2>
-                    <h1 className="text-7xl md:text-[10rem] font-black tracking-tighter mb-8 leading-[0.8] italic uppercase">
-                      {t.hero.brand.split(' ')[0]} <br /> <span className="text-blue-600">{t.hero.brand.split(' ')[1]}</span>
-                    </h1>
-                    <p className="text-zinc-600 max-w-2xl mx-auto text-xs md:text-sm mb-12 uppercase tracking-widest font-bold leading-relaxed">
-                      {t.hero.welcome}
-                    </p>
-                    <div className="flex flex-col sm:flex-row items-center justify-center gap-6">
-                      <Link to="/order" className="group px-12 py-6 bg-white text-black font-black rounded-3xl hover:bg-blue-600 hover:text-white transition-all duration-500 flex items-center gap-3 shadow-[0_20px_40px_rgba(255,255,255,0.05)]">{t.hero.ctaOrder} <ArrowRight size={22} className="group-hover:translate-x-1 transition-transform" /></Link>
-                      <Link to="/portfolio" className="px-12 py-6 bg-zinc-950 text-white font-black rounded-3xl border border-white/5 hover:border-white/20 transition-all uppercase tracking-widest text-[10px]">{t.hero.ctaGallery}</Link>
-                    </div>
-                  </motion.div>
-                </section>
-              </div>
-            } />
-            
-            <Route path="/order" element={user ? <OrderForm user={user} /> : (
-              <div className="pt-40 px-6 text-center space-y-6">
-                <h2 className="text-3xl font-black uppercase italic italic">{t.order.loginPrompt}</h2>
-                <button onClick={signInWithGoogle} className="px-10 py-5 bg-blue-600 rounded-2xl font-black uppercase tracking-widest text-xs flex items-center gap-3 mx-auto shadow-[0_20px_40px_rgba(37,99,235,0.2)]">Sign in with Google <ChevronRight size={18}/></button>
-              </div>
-            )} />
-
-            <Route path="/portfolio" element={<Portfolio />} />
-            <Route path="/my-orders" element={user ? <MyOrdersPage user={user} /> : <div className="pt-40 text-center font-black uppercase text-zinc-800">Please Sign In</div>} />
-            <Route path="/admin" element={<AdminDashboard user={user} />} />
-          </Routes>
-
-          <AnimatePresence>
-            {showNotifications && (
-              <div className="fixed inset-0 z-[60] flex justify-end">
-                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowNotifications(false)} className="absolute inset-0 bg-black/95 backdrop-blur-md" />
-                <motion.div initial={{ x: "100%" }} animate={{ x: 0 }} exit={{ x: "100%" }} transition={{ type: 'spring', damping: 25, stiffness: 200 }} className="relative w-full max-w-lg bg-zinc-950 h-full border-l border-white/5 flex flex-col shadow-2xl">
-                  <div className="p-10 border-b border-white/5 flex items-center justify-between">
-                    <h3 className="text-3xl font-black uppercase tracking-tighter italic">{t.notifications.title}</h3>
-                    <button onClick={() => setShowNotifications(false)} className="p-4 hover:bg-zinc-900 rounded-2xl transition-all"><X size={24} /></button>
-                  </div>
-                  <div className="flex-1 overflow-y-auto p-8 space-y-6 no-scrollbar">
-                    {notifications.length === 0 ? <p className="text-zinc-800 uppercase font-black text-center mt-20 text-[10px]">{t.notifications.noNotifications}</p> : notifications.map(n => (
-                      <div key={n.id} onMouseEnter={() => markRead(n.id)} className={`p-8 bg-zinc-900/50 border ${readIds.includes(n.id) ? 'border-white/5' : 'border-blue-500/30 shadow-[0_0_20px_rgba(59,130,246,0.1)]'} rounded-[2.5rem] space-y-4`}>
-                        <h4 className="font-black text-xl italic uppercase leading-none">{n.title}</h4>
-                        <p className="text-zinc-500 text-sm leading-relaxed">{n.message}</p>
-                        {n.imageUrl && (
-                          <div className="mt-4 rounded-3xl overflow-hidden border border-white/5 aspect-video">
-                            <img src={n.imageUrl} className="w-full h-full object-cover" alt="Notification attachment" />
-                          </div>
-                        )}
-                        <div className="flex items-center justify-between pt-4 border-t border-white/5">
-                          <span className="text-[8px] text-zinc-700 font-black uppercase">{new Date(n.createdAt).toLocaleString()}</span>
-                          {n.link && <a href={n.link} target="_blank" className="text-[9px] font-black uppercase text-blue-500 hover:underline">{t.notifications.openLink}</a>}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </motion.div>
-              </div>
-            )}
-          </AnimatePresence>
-        </div>
-      </Router>
-    </LanguageContext.Provider>
-  );
-}
 
 // --- My Orders Page ---
 const MyOrdersPage: React.FC<{ user: UserProfile }> = ({ user }) => {
