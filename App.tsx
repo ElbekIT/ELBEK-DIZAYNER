@@ -538,13 +538,29 @@ const Portfolio: React.FC = () => {
         </p>
       </motion.div>
 
-      {loading ? (
+      {/* LOADING */}
+      {loading && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {[1,2,3,4,5,6].map(i => (
             <div key={i} className="aspect-video bg-zinc-900 animate-pulse rounded-2xl" />
           ))}
         </div>
-      ) : (
+      )}
+
+      {/* EMPTY STATE */}
+      {!loading && categories.length === 0 && (
+        <div className="text-center py-32">
+          <p className="text-zinc-600 uppercase text-xs font-black tracking-widest">
+            Portfolio is empty for now
+          </p>
+          <p className="text-zinc-800 text-[10px] uppercase font-black mt-2">
+            Admin has not added any works yet
+          </p>
+        </div>
+      )}
+
+      {/* CONTENT */}
+      {!loading &&
         categories.map(([categoryId, category]: any) => (
           <div key={categoryId} className="mb-24">
             <h3 className="text-3xl font-black uppercase italic mb-8">
@@ -576,8 +592,7 @@ const Portfolio: React.FC = () => {
               </p>
             )}
           </div>
-        ))
-      )}
+        ))}
     </div>
   );
 };
