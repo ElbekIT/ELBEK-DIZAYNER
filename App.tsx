@@ -1,10 +1,14 @@
-'use client';
-
 
 import React, { useState, useEffect, useMemo, useRef, createContext, useContext } from 'react';
 import { HashRouter as Router, Routes, Route, Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, User, ShoppingBag, Images, CheckCircle2, ChevronRight, LogOut, LogIn, ShieldCheck, CreditCard, Check, Menu, X, Phone, Send, ArrowRight, Bell, Trash2, ShieldAlert, Clock, ExternalLink, ImageIcon, Users, Layers, Megaphone, Upload, FileImage, Search, Gamepad2, Info, CarIcon as CardIcon, Globe } from 'lucide-react';
+import { 
+  Plus, User, ShoppingBag, Images, CheckCircle2, ChevronRight, LogOut, LogIn,
+  ShieldCheck, CreditCard, Check, Menu, X, Phone, Send, ArrowRight,
+  Bell, Trash2, ShieldAlert, Clock, ExternalLink, Image as ImageIcon,
+  Users, Layers, Megaphone, Upload, FileImage, Search, Gamepad2, Info, CreditCard as CardIcon,
+  Globe
+} from 'lucide-react';
 import { LoadingScreen } from './components/LoadingScreen';
 import { ProtectedImage } from './components/ProtectedImage';
 import { auth, signInWithGoogle, logout, database } from './firebase';
@@ -150,7 +154,7 @@ const Navbar: React.FC<{
                   <span className="text-sm font-bold">{user.displayName}</span>
                   {user.isOwner && <span className="text-[10px] uppercase text-blue-500 font-black">Owner</span>}
                 </div>
-                <img src={user.photoURL || "/placeholder.svg"} alt="profile" className="w-9 h-9 rounded-full ring-2 ring-blue-600" />
+                <img src={user.photoURL} alt="profile" className="w-9 h-9 rounded-full ring-2 ring-blue-600" />
                 <button onClick={logout} className="p-2 text-zinc-500 hover:text-red-500 transition-colors"><LogOut size={18} /></button>
               </div>
             ) : (
@@ -402,11 +406,6 @@ const OrderForm: React.FC<{ user: UserProfile }> = ({ user }) => {
 
             {step === 5 && (
               <div className="space-y-8">
-                <div className="bg-red-500/10 border border-red-500/30 p-4 rounded-xl">
-                  <p className="text-red-400 font-bold text-sm uppercase tracking-widest">{t.order.paymentImportant}</p>
-                  <p className="text-red-300/80 text-xs mt-2 leading-relaxed">{t.order.paymentInstructions}</p>
-                </div>
-
                 <div className="bg-zinc-900 border border-white/5 p-8 rounded-[2rem] space-y-6">
                   <h3 className="text-2xl font-black uppercase italic italic text-center">{t.order.checkoutTitle}</h3>
                   <div className="space-y-3">
@@ -658,7 +657,7 @@ const PortfolioManagerAdmin = () => {
       <div className="bg-zinc-900 p-8 rounded-3xl space-y-4">
         <input type="text" placeholder={t.admin.designTitle} value={title} onChange={e => setTitle(e.target.value)} className="w-full bg-black p-4 rounded-xl outline-none" />
         <label className="block w-full h-48 border-2 border-dashed border-white/10 rounded-2xl cursor-pointer hover:bg-zinc-800 transition-all flex items-center justify-center overflow-hidden">
-          {preview ? <img src={preview || "/placeholder.svg"} className="w-full h-full object-cover" /> : <Upload className="text-zinc-600" />}
+          {preview ? <img src={preview} className="w-full h-full object-cover" /> : <Upload className="text-zinc-600" />}
           <input type="file" className="hidden" accept="image/*" onChange={handleFile} />
         </label>
         <button onClick={handleAdd} className="w-full py-4 bg-blue-600 font-black uppercase rounded-xl">{t.admin.portfolioAdd}</button>
@@ -666,7 +665,7 @@ const PortfolioManagerAdmin = () => {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {items.map(item => (
           <div key={item.id} className="relative group rounded-xl overflow-hidden aspect-video">
-             <img src={item.imageUrl || "/placeholder.svg"} className="w-full h-full object-cover" />
+             <img src={item.imageUrl} className="w-full h-full object-cover" />
              <button onClick={() => remove(ref(database, `portfolio/${item.id}`))} className="absolute top-2 right-2 p-2 bg-red-600 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 size={16} /></button>
           </div>
         ))}
@@ -689,7 +688,7 @@ const UserModerationAdmin = () => {
       {users.map(u => (
         <div key={u.uid} className="bg-zinc-900 p-4 rounded-2xl flex justify-between items-center">
           <div className="flex items-center gap-4">
-            <img src={u.photoURL || "/placeholder.svg"} className="w-10 h-10 rounded-full" />
+            <img src={u.photoURL} className="w-10 h-10 rounded-full" />
             <div>
               <p className="font-bold">{u.displayName}</p>
               <p className="text-[10px] text-zinc-500 uppercase">{u.email}</p>
@@ -777,7 +776,7 @@ const BroadcasterAdmin: React.FC<{ users: AppUserMetadata[] }> = ({ users }) => 
         <div className="flex flex-col md:flex-row gap-4 items-start">
           <label className="flex flex-col items-center justify-center w-40 h-28 border-2 border-dashed border-white/10 rounded-2xl cursor-pointer hover:bg-zinc-800 transition-all group relative overflow-hidden">
             {preview ? (
-              <img src={preview || "/placeholder.svg"} className="w-full h-full object-cover" />
+              <img src={preview} className="w-full h-full object-cover" />
             ) : (
               <>
                 <ImageIcon className="text-zinc-600 group-hover:text-blue-500 mb-1" size={20} />
@@ -925,7 +924,7 @@ export default function App() {
                         <p className="text-zinc-500 text-sm leading-relaxed">{n.message}</p>
                         {n.imageUrl && (
                           <div className="mt-4 rounded-3xl overflow-hidden border border-white/5 aspect-video">
-                            <img src={n.imageUrl || "/placeholder.svg"} className="w-full h-full object-cover" alt="Notification attachment" />
+                            <img src={n.imageUrl} className="w-full h-full object-cover" alt="Notification attachment" />
                           </div>
                         )}
                         <div className="flex items-center justify-between pt-4 border-t border-white/5">
