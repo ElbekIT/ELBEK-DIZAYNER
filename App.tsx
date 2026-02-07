@@ -1,10 +1,14 @@
-'use client';
-
 
 import React, { useState, useEffect, useMemo, useRef, createContext, useContext } from 'react';
 import { HashRouter as Router, Routes, Route, Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, User, ShoppingBag, Images, CheckCircle2, ChevronRight, LogOut, LogIn, ShieldCheck, CreditCard, Check, Menu, X, Phone, Send, ArrowRight, Bell, Trash2, ShieldAlert, Clock, ExternalLink, ImageIcon, Users, Layers, Megaphone, Upload, FileImage, Search, Gamepad2, Info, CarIcon as CardIcon, Globe } from 'lucide-react';
+import { 
+  Plus, User, ShoppingBag, Images, CheckCircle2, ChevronRight, LogOut, LogIn,
+  ShieldCheck, CreditCard, Check, Menu, X, Phone, Send, ArrowRight,
+  Bell, Trash2, ShieldAlert, Clock, ExternalLink, Image as ImageIcon,
+  Users, Layers, Megaphone, Upload, FileImage, Search, Gamepad2, Info, CreditCard as CardIcon,
+  Globe
+} from 'lucide-react';
 import { LoadingScreen } from './components/LoadingScreen';
 import { ProtectedImage } from './components/ProtectedImage';
 import { auth, signInWithGoogle, logout, database } from './firebase';
@@ -54,141 +58,6 @@ const BlockedOverlay: React.FC<{ status: BlockStatus }> = ({ status }) => {
         <button onClick={() => auth.signOut()} className="w-full py-4 bg-zinc-800 hover:bg-zinc-700 text-white rounded-2xl font-bold transition-all">{t.nav.signOut}</button>
       </motion.div>
     </div>
-  );
-};
-
-// --- About Modal ---
-
-const AboutModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isOpen, onClose }) => {
-  const { t } = useTranslation();
-
-  return (
-    <AnimatePresence>
-      {isOpen && (
-        <>
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={onClose}
-            className="fixed inset-0 z-[70] bg-black/60 backdrop-blur-sm"
-          />
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95, y: 20 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95, y: 20 }}
-            className="fixed inset-0 z-[71] flex items-center justify-center px-6 py-8 overflow-y-auto"
-          >
-            <div className="w-full max-w-3xl bg-zinc-900 border border-white/5 rounded-3xl p-8 md:p-12 my-auto">
-              <div className="flex items-center justify-between mb-8">
-                <h2 className="text-3xl md:text-4xl font-black uppercase">{t.about.title}</h2>
-                <button
-                  onClick={onClose}
-                  className="p-2 text-zinc-500 hover:text-white transition-colors"
-                >
-                  <X size={24} />
-                </button>
-              </div>
-
-              <div className="space-y-6 text-zinc-300 text-sm md:text-base leading-relaxed">
-                <div>
-                  <h3 className="text-white font-black uppercase mb-2">{t.about.features}</h3>
-                </div>
-
-                <section className="bg-zinc-800/50 p-6 rounded-2xl">
-                  <h4 className="font-black text-white mb-3">{t.about.userSystem}</h4>
-                  <ul className="space-y-2 text-xs md:text-sm">
-                    <li>✓ {t.about.userAuth}</li>
-                    <li>✓ {t.about.userProfile}</li>
-                    <li>✓ {t.about.orderHistory}</li>
-                    <li>✓ {t.about.realNotifications}</li>
-                    <li>✓ {t.about.blockRestrictions}</li>
-                  </ul>
-                </section>
-
-                <section className="bg-zinc-800/50 p-6 rounded-2xl">
-                  <h4 className="font-black text-white mb-3">{t.about.multilingual}</h4>
-                  <ul className="space-y-2 text-xs md:text-sm">
-                    <li>� {t.about.uz}</li>
-                    <li>� {t.about.uzCyr}</li>
-                    <li>� {t.about.russian}</li>
-                  </ul>
-                </section>
-
-                <section className="bg-zinc-800/50 p-6 rounded-2xl">
-                  <h4 className="font-black text-white mb-3">{t.about.orderSystem}</h4>
-                  <ul className="space-y-2 text-xs md:text-sm">
-                    <li>1️⃣ {t.about.personalInfo}</li>
-                    <li>2️⃣ {t.about.designType}</li>
-                    <li>3️⃣ {t.about.gameSelection}</li>
-                    <li>4️⃣ {t.about.additionalNotes}</li>
-                    <li>5️⃣ {t.about.pricePromo}</li>
-                  </ul>
-                </section>
-
-                <section className="bg-red-900/20 border border-red-500/30 p-6 rounded-2xl">
-                  <h4 className="font-black text-red-400 mb-4">{t.about.payment}</h4>
-                  <p className="mb-4 text-xs md:text-sm">{t.about.noAutoPayment}</p>
-                  <ul className="space-y-2 text-xs md:text-sm mb-4">
-                    <li>{t.about.doesNotWithdraw}</li>
-                    <li>{t.about.noPaymentGateway}</li>
-                    <li>{t.about.noCardStorage}</li>
-                  </ul>
-                  <div className="bg-zinc-800/50 p-4 rounded-xl mt-4">
-                    <h5 className="font-black text-white mb-3 text-xs">{t.about.workflow}</h5>
-                    <ol className="space-y-2 text-xs">
-                      <li>1. {t.about.step1}</li>
-                      <li>2. {t.about.step2}</li>
-                      <li>3. {t.about.step3}</li>
-                      <li>4. {t.about.step4}</li>
-                      <li>5. {t.about.step5}</li>
-                    </ol>
-                  </div>
-                </section>
-
-                <section className="bg-green-900/20 border border-green-500/30 p-6 rounded-2xl">
-                  <h4 className="font-black text-green-400 mb-4">{t.about.securityGuarantee}</h4>
-                  <ul className="space-y-2 text-xs md:text-sm">
-                    <li>✓ {t.about.websiteInfo}</li>
-                    <li>✓ {t.about.checkboxInfo}</li>
-                    <li>✓ {t.about.confirmOnly}</li>
-                    <li>✓ {t.about.noHidden}</li>
-                  </ul>
-                  <div className="mt-4 p-4 bg-zinc-800/50 rounded-xl">
-                    <h5 className="font-black text-white mb-3 text-xs">{t.about.trust}</h5>
-                    <ul className="space-y-2 text-xs">
-                      <li>✅ {t.about.neverProcess}</li>
-                      <li>✅ {t.about.communication}</li>
-                      <li>✅ {t.about.transparent}</li>
-                    </ul>
-                  </div>
-                </section>
-
-                <section className="bg-blue-900/20 border border-blue-500/30 p-6 rounded-2xl">
-                  <h4 className="font-black text-blue-400 mb-3">{t.about.tech}</h4>
-                  <ul className="space-y-2 text-xs md:text-sm">
-                    <li>⚛️ {t.about.react}</li>
-                    <li>�️ {t.about.router}</li>
-                    <li>� {t.about.firebaseDB}</li>
-                    <li>� {t.about.motion}</li>
-                    <li>� {t.about.tailwind}</li>
-                    <li>� {t.about.icons}</li>
-                    <li>� {t.about.telegram}</li>
-                  </ul>
-                </section>
-              </div>
-
-              <button
-                onClick={onClose}
-                className="w-full mt-8 py-4 bg-blue-600 hover:bg-blue-700 text-white font-black rounded-2xl transition-all uppercase tracking-widest text-xs"
-              >
-                {t.nav.signOut === t.nav.signOut ? 'Close' : t.nav.signOut}
-              </button>
-            </div>
-          </motion.div>
-        </>
-      )}
-    </AnimatePresence>
   );
 };
 
@@ -243,9 +112,8 @@ const LanguageSwitcher: React.FC = () => {
 const Navbar: React.FC<{ 
   user: UserProfile | null, 
   unreadCount: number, 
-  onToggleNotifications: () => void,
-  onToggleAbout: () => void
-}> = ({ user, unreadCount, onToggleNotifications, onToggleAbout }) => {
+  onToggleNotifications: () => void 
+}> = ({ user, unreadCount, onToggleNotifications }) => {
   const [isOpen, setIsOpen] = useState(false);
   const location = useLocation();
   const { t } = useTranslation();
@@ -274,9 +142,6 @@ const Navbar: React.FC<{
           
           <div className="flex items-center gap-4 pl-4 border-l border-white/10">
             <LanguageSwitcher />
-            <button onClick={onToggleAbout} className="p-2 text-zinc-400 hover:text-white transition-colors" title="About">
-              <Info size={20} />
-            </button>
             {user && (
               <button onClick={onToggleNotifications} className="relative p-2 text-zinc-400 hover:text-white transition-colors">
                 <Bell size={20} />
@@ -289,7 +154,7 @@ const Navbar: React.FC<{
                   <span className="text-sm font-bold">{user.displayName}</span>
                   {user.isOwner && <span className="text-[10px] uppercase text-blue-500 font-black">Owner</span>}
                 </div>
-                <img src={user.photoURL || "/placeholder.svg"} alt="profile" className="w-9 h-9 rounded-full ring-2 ring-blue-600" />
+                <img src={user.photoURL} alt="profile" className="w-9 h-9 rounded-full ring-2 ring-blue-600" />
                 <button onClick={logout} className="p-2 text-zinc-500 hover:text-red-500 transition-colors"><LogOut size={18} /></button>
               </div>
             ) : (
@@ -792,7 +657,7 @@ const PortfolioManagerAdmin = () => {
       <div className="bg-zinc-900 p-8 rounded-3xl space-y-4">
         <input type="text" placeholder={t.admin.designTitle} value={title} onChange={e => setTitle(e.target.value)} className="w-full bg-black p-4 rounded-xl outline-none" />
         <label className="block w-full h-48 border-2 border-dashed border-white/10 rounded-2xl cursor-pointer hover:bg-zinc-800 transition-all flex items-center justify-center overflow-hidden">
-          {preview ? <img src={preview || "/placeholder.svg"} className="w-full h-full object-cover" /> : <Upload className="text-zinc-600" />}
+          {preview ? <img src={preview} className="w-full h-full object-cover" /> : <Upload className="text-zinc-600" />}
           <input type="file" className="hidden" accept="image/*" onChange={handleFile} />
         </label>
         <button onClick={handleAdd} className="w-full py-4 bg-blue-600 font-black uppercase rounded-xl">{t.admin.portfolioAdd}</button>
@@ -800,7 +665,7 @@ const PortfolioManagerAdmin = () => {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {items.map(item => (
           <div key={item.id} className="relative group rounded-xl overflow-hidden aspect-video">
-             <img src={item.imageUrl || "/placeholder.svg"} className="w-full h-full object-cover" />
+             <img src={item.imageUrl} className="w-full h-full object-cover" />
              <button onClick={() => remove(ref(database, `portfolio/${item.id}`))} className="absolute top-2 right-2 p-2 bg-red-600 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 size={16} /></button>
           </div>
         ))}
@@ -823,7 +688,7 @@ const UserModerationAdmin = () => {
       {users.map(u => (
         <div key={u.uid} className="bg-zinc-900 p-4 rounded-2xl flex justify-between items-center">
           <div className="flex items-center gap-4">
-            <img src={u.photoURL || "/placeholder.svg"} className="w-10 h-10 rounded-full" />
+            <img src={u.photoURL} className="w-10 h-10 rounded-full" />
             <div>
               <p className="font-bold">{u.displayName}</p>
               <p className="text-[10px] text-zinc-500 uppercase">{u.email}</p>
@@ -911,7 +776,7 @@ const BroadcasterAdmin: React.FC<{ users: AppUserMetadata[] }> = ({ users }) => 
         <div className="flex flex-col md:flex-row gap-4 items-start">
           <label className="flex flex-col items-center justify-center w-40 h-28 border-2 border-dashed border-white/10 rounded-2xl cursor-pointer hover:bg-zinc-800 transition-all group relative overflow-hidden">
             {preview ? (
-              <img src={preview || "/placeholder.svg"} className="w-full h-full object-cover" />
+              <img src={preview} className="w-full h-full object-cover" />
             ) : (
               <>
                 <ImageIcon className="text-zinc-600 group-hover:text-blue-500 mb-1" size={20} />
@@ -943,7 +808,6 @@ export default function App() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [readIds, setReadIds] = useState<string[]>([]);
   const [showNotifications, setShowNotifications] = useState(false);
-  const [showAbout, setShowAbout] = useState(false);
 
   useEffect(() => {
     localStorage.setItem('lang', language);
@@ -1008,8 +872,7 @@ export default function App() {
       <Router>
         <div className="min-h-screen bg-[#050505]">
           {blockStatus?.isBlocked && <BlockedOverlay status={blockStatus} />}
-          <Navbar user={user} unreadCount={unreadCount} onToggleNotifications={() => setShowNotifications(true)} onToggleAbout={() => setShowAbout(true)} />
-          <AboutModal isOpen={showAbout} onClose={() => setShowAbout(false)} />
+          <Navbar user={user} unreadCount={unreadCount} onToggleNotifications={() => setShowNotifications(true)} />
           
           <Routes>
             <Route path="/" element={
@@ -1061,7 +924,7 @@ export default function App() {
                         <p className="text-zinc-500 text-sm leading-relaxed">{n.message}</p>
                         {n.imageUrl && (
                           <div className="mt-4 rounded-3xl overflow-hidden border border-white/5 aspect-video">
-                            <img src={n.imageUrl || "/placeholder.svg"} className="w-full h-full object-cover" alt="Notification attachment" />
+                            <img src={n.imageUrl} className="w-full h-full object-cover" alt="Notification attachment" />
                           </div>
                         )}
                         <div className="flex items-center justify-between pt-4 border-t border-white/5">
