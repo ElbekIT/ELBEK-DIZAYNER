@@ -2,8 +2,13 @@
 import { TELEGRAM_CONFIG } from '../constants';
 import { Order } from '../types';
 
+/**
+ * Sends order notifications to a Telegram bot.
+ * Uses a GET request with URL parameters to bypass CORS preflight restrictions
+ * that often block JSON POST requests from the browser to the Telegram API.
+ */
 export const sendOrderToTelegram = async (order: Order) => {
-  // Helper to escape HTML special characters for Telegram's HTML parse mode
+  // Helper to escape characters that might break the URL or Telegram HTML parsing
   const escapeHTML = (str: string = '') => 
     str.replace(/[&<>"']/g, (m) => ({
       '&': '&amp;',
@@ -13,50 +18,44 @@ export const sendOrderToTelegram = async (order: Order) => {
       "'": '&#039;'
     })[m] || m);
 
-  // Constructing a clean, readable message for the admin
-  const message = `
-🚀 <b>NEW DESIGN ORDER</b>
+  const messageText = `
+🚀 <b>New Order from Elbek Design!</b>
 -----------------------------
-👤 <b>Client:</b> ${escapeHTML(order.firstName)} ${escapeHTML(order.lastName || '')}
+👤 <b>User:</b> ${escapeHTML(order.firstName)} ${escapeHTML(order.lastName || '')}
 📧 <b>Email:</b> ${escapeHTML(order.userEmail)}
 📞 <b>Phone:</b> ${escapeHTML(order.phoneNumber)}
 📱 <b>Telegram:</b> ${escapeHTML(order.telegramUsername)}
-🎮 <b>Focus:</b> ${escapeHTML(order.game)}
-🎨 <b>Services:</b> ${escapeHTML(order.designTypes?.join(' + ') || 'None')}
-💰 <b>Value:</b> ${order.totalPrice?.toLocaleString() || 0} UZS
-🎟️ <b>Promo:</b> ${escapeHTML(order.promoCode || 'N/A')}
-📅 <b>Timestamp:</b> ${new Date(order.createdAt).toLocaleString()}
+🎮 <b>Game:</b> ${escapeHTML(order.game)}
+🎨 <b>Designs:</b> ${escapeHTML(order.designTypes?.join(', ') || 'None')}
+💰 <b>Total Price:</b> ${order.totalPrice?.toLocaleString() || 0} UZS
+🎟️ <b>Promo:</b> ${escapeHTML(order.promoCode || 'None')}
+📅 <b>Date:</b> ${new Date(order.createdAt).toLocaleString()}
 
-📝 <b>Vision:</b>
-<i>${escapeHTML(order.message || 'No specific instructions provided.')}</i>
+📝 <b>Message:</b>
+<i>${escapeHTML(order.message || 'No description provided')}</i>
 -----------------------------
-🆔 Order ID: <code>${order.id}</code>
+✅ Status: Checking
   `.trim();
 
   try {
-    // Telegram API does not support CORS. 
-    // To send messages from a client-side web app, we use a GET request with 'no-cors' mode.
-    // This allows the request to be dispatched to the server even if the browser cannot read the response.
-    const baseUrl = `https://api.telegram.org/bot${TELEGRAM_CONFIG.BOT_TOKEN}/sendMessage`;
-    const params = new URLSearchParams({
-      chat_id: TELEGRAM_CONFIG.ADMIN_ID,
-      text: message,
-      parse_mode: 'HTML'
-    });
+    // Using GET request to avoid CORS preflight (OPTIONS) issues with api.telegram.org
+    const url = new URL(`https://api.telegram.org/bot${TELEGRAM_CONFIG.BOT_TOKEN}/sendMessage`);
+    url.searchParams.append('chat_id', TELEGRAM_CONFIG.ADMIN_ID);
+    url.searchParams.append('text', messageText);
+    url.searchParams.append('parse_mode', 'HTML');
 
-    const url = `${baseUrl}?${params.toString()}`;
-
-    // mode: 'no-cors' is critical for client-side Telegram bot integration.
-    await fetch(url, { 
+    // We use 'no-cors' mode to ensure the request is dispatched even if the browser 
+    // can't read the response due to Telegram's CORS policy.
+    const response = await fetch(url.toString(), { 
       method: 'GET',
-      mode: 'no-cors',
-      cache: 'no-cache'
+      mode: 'no-cors' 
     });
     
-    console.log("Telegram notification signal sent.");
+    // Note: with 'no-cors', response.ok will be false and response.status will be 0,
+    // but the request is actually sent to the server.
     return true;
   } catch (error) {
-    console.error("Telegram notification failed to dispatch:", error);
+    console.error("Telegram notify network error:", error);
     return false;
   }
 };
