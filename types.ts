@@ -24,6 +24,11 @@ export interface Order {
   createdAt: string;
 }
 
+export interface WorkingHours {
+  start: string; // HH:mm format
+  end: string;   // HH:mm format
+}
+
 export interface UserProfile {
   uid: string;
   email: string;
