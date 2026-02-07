@@ -10,8 +10,8 @@ export const DESIGN_PRICES = {
 };
 
 export const TELEGRAM_CONFIG = {
-  BOT_TOKEN: '7264338255:AAGE9iqGXeergNWkF5b7U43NQvGCwC5mi8w',
-  ADMIN_ID: '7714287797',
+  BOT_TOKEN: import.meta.env.VITE_TELEGRAM_BOT_TOKEN || '',
+  ADMIN_ID: import.meta.env.VITE_TELEGRAM_ADMIN_ID || '',
 };
 
 export const GAMES = [
