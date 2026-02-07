@@ -7,15 +7,14 @@ import {
   ShieldCheck, CreditCard, Check, Menu, X, Phone, Send, ArrowRight,
   Bell, Trash2, ShieldAlert, Clock, ExternalLink, Image as ImageIcon,
   Users, Layers, Megaphone, Upload, FileImage, Search, Gamepad2, Info, CreditCard as CardIcon,
-  Globe
+  Globe, Calendar
 } from 'lucide-react';
 import { LoadingScreen } from './components/LoadingScreen';
 import { ProtectedImage } from './components/ProtectedImage';
 import { auth, signInWithGoogle, logout, database } from './firebase';
 import { ref, push, onValue, set, get, remove } from 'firebase/database';
-import { UserProfile, Order, OrderStatus, PortfolioItem, Notification, BlockStatus, AppUserMetadata } from './types';
+import { UserProfile, Order, OrderStatus, PortfolioItem, Notification, BlockStatus, AppUserMetadata, WorkingHours } from './types';
 import { GAMES, DESIGN_PRICES, PROMO_CODE, PROMO_DISCOUNT, OWNER_EMAIL } from './constants';
-import { sendOrderToTelegram } from './services/telegramService';
 import { Language, translations } from './translations';
 
 // --- Localization Context ---
@@ -48,7 +47,7 @@ const NotificationBadge: React.FC<{ count: number }> = ({ count }) => {
 const BlockedOverlay: React.FC<{ status: BlockStatus }> = ({ status }) => {
   const { t } = useTranslation();
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/95 backdrop-blur-xl px-6">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/95 backdrop-blur-md px-6">
       <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="max-w-md w-full text-center bg-zinc-900 border border-red-500/20 p-12 rounded-[3rem]">
         <div className="w-20 h-20 bg-red-600/20 text-red-500 rounded-3xl flex items-center justify-center mx-auto mb-8">
           <ShieldAlert size={40} />
@@ -59,6 +58,36 @@ const BlockedOverlay: React.FC<{ status: BlockStatus }> = ({ status }) => {
       </motion.div>
     </div>
   );
+};
+
+// --- Working Hours Hook ---
+
+const useWorkingHoursLogic = () => {
+  const [schedule, setSchedule] = useState<WorkingHours>({ start: "10:00", end: "19:00" });
+  const [currentTime, setCurrentTime] = useState(new Date());
+
+  useEffect(() => {
+    // Sync schedule with DB
+    const scheduleRef = ref(database, 'config/workingHours');
+    const unsub = onValue(scheduleRef, (snapshot) => {
+      const data = snapshot.val();
+      if (data) setSchedule(data);
+    });
+
+    // Sync clock
+    const timer = setInterval(() => setCurrentTime(new Date()), 60000);
+    return () => {
+      unsub();
+      clearInterval(timer);
+    };
+  }, []);
+
+  const isWorking = useMemo(() => {
+    const nowStr = `${currentTime.getHours().toString().padStart(2, '0')}:${currentTime.getMinutes().toString().padStart(2, '0')}`;
+    return nowStr >= schedule.start && nowStr <= schedule.end;
+  }, [currentTime, schedule]);
+
+  return { schedule, isWorking, currentTime };
 };
 
 // --- Navbar ---
@@ -112,15 +141,16 @@ const LanguageSwitcher: React.FC = () => {
 const Navbar: React.FC<{ 
   user: UserProfile | null, 
   unreadCount: number, 
-  onToggleNotifications: () => void 
-}> = ({ user, unreadCount, onToggleNotifications }) => {
+  onToggleNotifications: () => void,
+  isWorking: boolean
+}> = ({ user, unreadCount, onToggleNotifications, isWorking }) => {
   const [isOpen, setIsOpen] = useState(false);
   const location = useLocation();
   const { t } = useTranslation();
 
   const navLinks = [
     { name: t.nav.home, path: '/', icon: Plus },
-    { name: t.nav.order, path: '/order', icon: ShoppingBag },
+    { name: t.nav.order, path: '/order', icon: ShoppingBag, disabled: !isWorking },
     { name: t.nav.portfolio, path: '/portfolio', icon: Images },
     { name: t.nav.myOrders, path: '/my-orders', icon: User },
   ];
@@ -137,7 +167,13 @@ const Navbar: React.FC<{
 
         <div className="hidden md:flex items-center gap-8">
           {navLinks.map(link => (
-            <Link key={link.path} to={link.path} className={`text-sm font-medium transition-colors hover:text-blue-500 ${location.pathname === link.path ? 'text-blue-500' : 'text-zinc-400'}`}>{link.name}</Link>
+            <Link 
+              key={link.path} 
+              to={link.disabled ? '#' : link.path} 
+              className={`text-sm font-medium transition-colors hover:text-blue-500 ${location.pathname === link.path ? 'text-blue-500' : 'text-zinc-400'} ${link.disabled ? 'opacity-30 cursor-not-allowed' : ''}`}
+            >
+              {link.name}
+            </Link>
           ))}
           
           <div className="flex items-center gap-4 pl-4 border-l border-white/10">
@@ -174,7 +210,7 @@ const Navbar: React.FC<{
           <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="md:hidden bg-zinc-950 border-b border-white/5 overflow-hidden">
             <div className="px-6 py-8 flex flex-col gap-6">
               {navLinks.map(link => (
-                <Link key={link.path} to={link.path} onClick={() => setIsOpen(false)} className="text-lg font-bold flex items-center gap-4"><link.icon className="text-blue-500" size={20} />{link.name}</Link>
+                <Link key={link.path} to={link.disabled ? '#' : link.path} onClick={() => !link.disabled && setIsOpen(false)} className={`text-lg font-bold flex items-center gap-4 ${link.disabled ? 'opacity-30' : ''}`}><link.icon className="text-blue-500" size={20} />{link.name}</Link>
               ))}
               {!user && <button onClick={() => { signInWithGoogle(); setIsOpen(false); }} className="w-full py-4 bg-blue-600 rounded-xl font-bold">{t.nav.signIn}</button>}
             </div>
@@ -197,7 +233,7 @@ const formatPhoneNumber = (value: string) => {
   return formatted;
 };
 
-const OrderForm: React.FC<{ user: UserProfile }> = ({ user }) => {
+const OrderForm: React.FC<{ user: UserProfile, isWorking: boolean }> = ({ user, isWorking }) => {
   const { t } = useTranslation();
   const [step, setStep] = useState(1);
   const [showIntro, setShowIntro] = useState(true);
@@ -235,13 +271,12 @@ const OrderForm: React.FC<{ user: UserProfile }> = ({ user }) => {
   const totalPrice = hasDiscount ? basePrice * (1 - PROMO_DISCOUNT) : basePrice;
 
   const handleSubmit = async () => {
-    if (!formData.paymentConfirmed || submitting) return;
+    if (!formData.paymentConfirmed || submitting || !isWorking) return;
     
     try {
       setSubmitting(true);
       const orderId = Math.random().toString(36).substring(7).toUpperCase();
       
-      // Build order object carefully to avoid undefined fields
       const newOrder: Order = {
         id: orderId,
         userId: user.uid,
@@ -260,27 +295,33 @@ const OrderForm: React.FC<{ user: UserProfile }> = ({ user }) => {
         createdAt: new Date().toISOString()
       };
 
-      // Add promo code only if valid and noPromo is not checked
       if (!noPromo && formData.promoCode) {
         newOrder.promoCode = formData.promoCode;
       }
 
-      // Save to Database
       await set(ref(database, `orders/${orderId}`), newOrder);
-      
-      // Dispatch Telegram Notification (Fire-and-forget)
-      sendOrderToTelegram(newOrder).catch(err => console.error("Telegram Error:", err));
       
       setDone(true);
       setTimeout(() => navigate('/my-orders'), 2000);
     } catch (error) {
       console.error("Critical submission error:", error);
       alert("Submission failed. Check your internet connection or try again later.");
-    } finally {
-      // If not successful, allow another attempt
-      if (!done) setSubmitting(false);
+      setSubmitting(false);
     }
   };
+
+  if (!isWorking) {
+    return (
+      <div className="pt-40 px-6 text-center max-w-2xl mx-auto">
+        <div className="w-20 h-20 bg-zinc-900 rounded-3xl flex items-center justify-center mx-auto mb-8 text-zinc-600">
+           <Clock size={40} />
+        </div>
+        <h2 className="text-3xl font-black uppercase italic italic mb-4">{t.hero.statusClosed}</h2>
+        <p className="text-zinc-500 uppercase tracking-widest text-[10px] font-black">{t.order.closedWarning}</p>
+        <Link to="/" className="inline-block mt-8 px-8 py-4 bg-zinc-900 rounded-xl text-xs font-black uppercase tracking-widest">{t.nav.home}</Link>
+      </div>
+    );
+  }
 
   if (showIntro) {
     return (
@@ -449,7 +490,6 @@ const OrderForm: React.FC<{ user: UserProfile }> = ({ user }) => {
                             onChange={e => {
                               const val = e.target.value;
                               setFormData(prev => ({ ...prev, promoCode: val }));
-                              // Typing in a code automatically ensures noPromo is false
                               if (val.length > 0) setNoPromo(false);
                             }}
                             className="w-full bg-black/40 border border-white/10 p-4 rounded-xl outline-none mb-2" 
@@ -469,7 +509,6 @@ const OrderForm: React.FC<{ user: UserProfile }> = ({ user }) => {
                           onChange={e => {
                             const checked = e.target.checked;
                             setNoPromo(checked);
-                            // If user checks 'No Promo', we strictly clear any code
                             if (checked) setFormData(prev => ({ ...prev, promoCode: '' }));
                           }} 
                           className="hidden" 
@@ -508,91 +547,42 @@ const OrderForm: React.FC<{ user: UserProfile }> = ({ user }) => {
     </div>
   );
 };
+
 // --- Portfolio View ---
 
 const Portfolio: React.FC = () => {
   const { t } = useTranslation();
-  const [categories, setCategories] = useState<any[]>([]);
+  const [items, setItems] = useState<PortfolioItem[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    return onValue(ref(database, 'portfolio/categories'), (snapshot) => {
-      const data = snapshot.val() || {};
-      setCategories(Object.entries(data));
+    return onValue(ref(database, 'portfolio'), (snapshot) => {
+      setItems(Object.values(snapshot.val() || {}) as PortfolioItem[]);
       setLoading(false);
     });
   }, []);
 
   return (
     <div className="pt-32 pb-20 px-6 max-w-7xl mx-auto">
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="text-center mb-16"
-      >
-        <h2 className="text-4xl md:text-5xl font-black mb-4 uppercase tracking-tighter italic">
-          {t.portfolio.title}
-        </h2>
-        <p className="text-zinc-500 max-w-2xl mx-auto uppercase tracking-widest text-[10px] font-black">
-          {t.portfolio.subtitle}
-        </p>
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="text-center mb-16">
+        <h2 className="text-4xl md:text-5xl font-black mb-4 uppercase tracking-tighter italic">{t.portfolio.title}</h2>
+        <p className="text-zinc-500 max-w-2xl mx-auto uppercase tracking-widest text-[10px] font-black">{t.portfolio.subtitle}</p>
       </motion.div>
 
-      {/* LOADING */}
-      {loading && (
+      {loading ? (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {[1,2,3,4,5,6].map(i => (
-            <div key={i} className="aspect-video bg-zinc-900 animate-pulse rounded-2xl" />
+          {[1,2,3,4,5,6].map(i => <div key={i} className="aspect-video bg-zinc-900 animate-pulse rounded-2xl" />)}
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {items.map((item) => (
+            <motion.div key={item.id} initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}>
+              <ProtectedImage src={item.imageUrl} alt={item.title} className="aspect-video rounded-3xl border border-white/5" />
+              <p className="mt-4 text-[10px] font-black tracking-widest text-zinc-500 uppercase italic text-center">{item.title}</p>
+            </motion.div>
           ))}
         </div>
       )}
-
-      {/* EMPTY STATE */}
-      {!loading && categories.length === 0 && (
-        <div className="text-center py-32">
-          <p className="text-zinc-600 uppercase text-xs font-black tracking-widest">
-            Portfolio is empty for now
-          </p>
-          <p className="text-zinc-800 text-[10px] uppercase font-black mt-2">
-            Admin has not added any works yet
-          </p>
-        </div>
-      )}
-
-      {/* CONTENT */}
-      {!loading &&
-        categories.map(([categoryId, category]: any) => (
-          <div key={categoryId} className="mb-24">
-            <h3 className="text-3xl font-black uppercase italic mb-8">
-              {category.name || categoryId}
-            </h3>
-
-            {category.items ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {Object.values(category.items).map((item: any) => (
-                  <motion.div
-                    key={item.id}
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                  >
-                    <ProtectedImage
-                      src={item.imageUrl}
-                      alt={item.title}
-                      className="aspect-video rounded-3xl border border-white/5"
-                    />
-                    <p className="mt-3 text-[10px] font-black uppercase tracking-widest text-zinc-500 text-center">
-                      {item.title}
-                    </p>
-                  </motion.div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-zinc-600 uppercase text-xs font-black">
-                No items in this category
-              </p>
-            )}
-          </div>
-        ))}
     </div>
   );
 };
@@ -601,14 +591,14 @@ const Portfolio: React.FC = () => {
 
 const AdminDashboard: React.FC<{ user: UserProfile | null }> = ({ user }) => {
   const { t } = useTranslation();
-  const [activeTab, setActiveTab] = useState<'orders' | 'portfolio' | 'users' | 'broadcast'>('orders');
+  const [activeTab, setActiveTab] = useState<'orders' | 'portfolio' | 'users' | 'broadcast' | 'schedule'>('orders');
   const [users, setUsers] = useState<AppUserMetadata[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
 
   useEffect(() => {
     if (!user?.isOwner) return;
-    onValue(ref(database, 'users'), (s: any) => setUsers(Object.values(s.val() || {}) as AppUserMetadata[]));
-    onValue(ref(database, 'orders'), (s: any) => setOrders((Object.values(s.val() || {}) as Order[]).sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())));
+    onValue(ref(database, 'users'), s => setUsers(Object.values(s.val() || {}) as AppUserMetadata[]));
+    onValue(ref(database, 'orders'), s => setOrders((Object.values(s.val() || {}) as Order[]).sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())));
   }, [user]);
 
   const updateStatus = async (orderId: string, status: OrderStatus) => {
@@ -624,9 +614,9 @@ const AdminDashboard: React.FC<{ user: UserProfile | null }> = ({ user }) => {
           <h2 className="text-5xl font-black uppercase tracking-tighter italic">{t.admin.title}</h2>
           <p className="text-zinc-600 uppercase tracking-widest text-[10px] font-black mt-2">{t.admin.subtitle}</p>
         </div>
-        <div className="flex bg-zinc-900 p-2 rounded-2xl border border-white/5 gap-1">
-          {['orders', 'portfolio', 'users', 'broadcast'].map((tab) => (
-            <button key={tab} onClick={() => setActiveTab(tab as any)} className={`px-6 py-4 rounded-xl text-xs font-black uppercase transition-all ${activeTab === tab ? 'bg-blue-600 text-white' : 'text-zinc-500 hover:text-white'}`}>{t.admin.tabs[tab as keyof typeof t.admin.tabs]}</button>
+        <div className="flex bg-zinc-900 p-2 rounded-2xl border border-white/5 gap-1 overflow-x-auto no-scrollbar max-w-full">
+          {['orders', 'portfolio', 'users', 'broadcast', 'schedule'].map(tab => (
+            <button key={tab} onClick={() => setActiveTab(tab as any)} className={`whitespace-nowrap px-6 py-4 rounded-xl text-xs font-black uppercase transition-all ${activeTab === tab ? 'bg-blue-600 text-white' : 'text-zinc-500 hover:text-white'}`}>{t.admin.tabs[tab as keyof typeof t.admin.tabs]}</button>
           ))}
         </div>
       </div>
@@ -635,7 +625,7 @@ const AdminDashboard: React.FC<{ user: UserProfile | null }> = ({ user }) => {
         <motion.div key={activeTab}>
           {activeTab === 'orders' && (
             <div className="grid grid-cols-1 gap-4">
-              {orders.map((order) => (
+              {orders.map(order => (
                 <div key={order.id} className="bg-zinc-900/50 border border-white/5 p-8 rounded-[2rem] flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-2">
@@ -654,7 +644,7 @@ const AdminDashboard: React.FC<{ user: UserProfile | null }> = ({ user }) => {
                      <div className="flex items-center gap-4">
                         <select 
                           value={order.status} 
-                          onChange={(e) => updateStatus(order.id, e.target.value as OrderStatus)}
+                          onChange={e => updateStatus(order.id, e.target.value as OrderStatus)}
                           className="bg-black border border-white/10 p-3 rounded-lg text-xs font-black uppercase text-zinc-400 outline-none"
                         >
                           <option value={OrderStatus.CHECKING}>{t.common.checking}</option>
@@ -671,40 +661,59 @@ const AdminDashboard: React.FC<{ user: UserProfile | null }> = ({ user }) => {
           {activeTab === 'portfolio' && <PortfolioManagerAdmin />}
           {activeTab === 'users' && <UserModerationAdmin />}
           {activeTab === 'broadcast' && <BroadcasterAdmin users={users} />}
+          {activeTab === 'schedule' && <ScheduleAdmin />}
         </motion.div>
       </AnimatePresence>
     </div>
   );
 };
 
-const PortfolioManagerAdmin = () => {
+const ScheduleAdmin = () => {
   const { t } = useTranslation();
-  const CATEGORIES = ['Preview', 'Film', 'Logo', 'Banner', 'Avatar'];
-  const [categories, setCategories] = useState<string[]>([]);
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const [items, setItems] = useState<PortfolioItem[]>([]);
-  const [title, setTitle] = useState('');
-  const [preview, setPreview] = useState<string | null>(null);
-  const [newCategoryName, setNewCategoryName] = useState('');
-  const [showNewCategoryForm, setShowNewCategoryForm] = useState(false);
+  const [schedule, setSchedule] = useState<WorkingHours>({ start: "10:00", end: "19:00" });
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    onValue(ref(database, 'portfolio/categories'), (s: any) => {
-      const data = s.val() || {};
-      const cats = Object.keys(data);
-      setCategories(cats);
-      if (cats.length > 0 && !selectedCategory) {
-        setSelectedCategory(cats[0]);
-      }
+    onValue(ref(database, 'config/workingHours'), (s) => {
+      const data = s.val();
+      if (data) setSchedule(data);
     });
   }, []);
 
-  useEffect(() => {
-    if (!selectedCategory) return;
-    onValue(ref(database, `portfolio/categories/${selectedCategory}/items`), (s: any) => {
-      setItems(Object.values(s.val() || {}) as PortfolioItem[]);
-    });
-  }, [selectedCategory]);
+  const save = async () => {
+    setSaving(true);
+    await set(ref(database, 'config/workingHours'), schedule);
+    setSaving(false);
+    alert(t.admin.schedule.success);
+  };
+
+  return (
+    <div className="bg-zinc-900 p-8 rounded-[2rem] max-w-lg mx-auto space-y-8 border border-white/5">
+       <h3 className="text-2xl font-black uppercase italic italic text-center">{t.admin.schedule.title}</h3>
+       <div className="grid grid-cols-2 gap-8">
+          <div className="space-y-2">
+             <label className="text-[10px] font-black uppercase text-zinc-500 ml-1">{t.admin.schedule.start}</label>
+             <input type="time" value={schedule.start} onChange={e => setSchedule({...schedule, start: e.target.value})} className="w-full bg-black p-4 rounded-xl text-white outline-none border border-white/5" />
+          </div>
+          <div className="space-y-2">
+             <label className="text-[10px] font-black uppercase text-zinc-500 ml-1">{t.admin.schedule.end}</label>
+             <input type="time" value={schedule.end} onChange={e => setSchedule({...schedule, end: e.target.value})} className="w-full bg-black p-4 rounded-xl text-white outline-none border border-white/5" />
+          </div>
+       </div>
+       <button onClick={save} disabled={saving} className="w-full py-5 bg-blue-600 font-black uppercase rounded-2xl shadow-xl transition-all hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50">
+          {saving ? '...' : t.admin.schedule.save}
+       </button>
+    </div>
+  );
+};
+
+const PortfolioManagerAdmin = () => {
+  const { t } = useTranslation();
+  const [items, setItems] = useState<PortfolioItem[]>([]);
+  const [title, setTitle] = useState('');
+  const [preview, setPreview] = useState<string | null>(null);
+
+  useEffect(() => onValue(ref(database, 'portfolio'), s => setItems(Object.values(s.val() || {}))), []);
 
   const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -715,151 +724,31 @@ const PortfolioManagerAdmin = () => {
     }
   };
 
-  const handleAddItem = async () => {
-    if (!title || !preview || !selectedCategory) return;
+  const handleAdd = async () => {
+    if (!title || !preview) return;
     const id = Math.random().toString(36).substring(7);
-    await set(ref(database, `portfolio/categories/${selectedCategory}/items/${id}`), {
-      id,
-      title,
-      imageUrl: preview,
-      createdAt: new Date().toISOString()
-    });
-    setTitle('');
-    setPreview(null);
-  };
-
-  const handleDeleteItem = async (itemId: string) => {
-    if (!selectedCategory) return;
-    await remove(ref(database, `portfolio/categories/${selectedCategory}/items/${itemId}`));
-  };
-
-  const handleCreateCategory = async () => {
-    if (!newCategoryName.trim()) return;
-    const categoryId = newCategoryName.toLowerCase().replace(/\s+/g, '_');
-    await set(ref(database, `portfolio/categories/${categoryId}`), {
-      name: newCategoryName,
-      createdAt: new Date().toISOString()
-    });
-    setNewCategoryName('');
-    setShowNewCategoryForm(false);
-  };
-
-  const handleDeleteCategory = async () => {
-    if (!selectedCategory) return;
-    await remove(ref(database, `portfolio/categories/${selectedCategory}`));
-    setSelectedCategory(null);
+    await set(ref(database, `portfolio/${id}`), { id, title, imageUrl: preview, createdAt: new Date().toISOString() });
+    setTitle(''); setPreview(null);
   };
 
   return (
     <div className="space-y-8">
-      <div className="bg-zinc-900 p-8 rounded-3xl space-y-4 border border-white/5">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-2xl font-black uppercase italic">Categories</h3>
-          <button
-            onClick={() => setShowNewCategoryForm(!showNewCategoryForm)}
-            className="px-4 py-2 bg-blue-600 text-white font-black rounded-lg uppercase text-xs"
-          >
-            {showNewCategoryForm ? 'Cancel' : '+ New'}
-          </button>
-        </div>
-
-        {showNewCategoryForm && (
-          <div className="space-y-3 p-4 bg-black/50 rounded-xl border border-white/5">
-            <input
-              type="text"
-              placeholder="Category name"
-              value={newCategoryName}
-              onChange={(e) => setNewCategoryName(e.target.value)}
-              className="w-full bg-black p-3 rounded-lg outline-none border border-white/10 text-sm"
-            />
-            <button
-              onClick={handleCreateCategory}
-              disabled={!newCategoryName.trim()}
-              className="w-full py-2 bg-green-600 font-black rounded-lg uppercase text-xs disabled:opacity-50"
-            >
-              Create Category
-            </button>
-          </div>
-        )}
-
-        <div className="flex flex-wrap gap-2">
-          {categories.map((cat) => (
-            <button
-              key={cat}
-              onClick={() => setSelectedCategory(cat)}
-              className={`px-4 py-2 rounded-lg text-xs font-black uppercase transition-all ${
-                selectedCategory === cat
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'
-              }`}
-            >
-              {cat}
-            </button>
-          ))}
-          {categories.length === 0 && (
-            <p className="text-zinc-600 text-sm uppercase font-black">No categories yet</p>
-          )}
-        </div>
-
-        {selectedCategory && (
-          <button
-            onClick={handleDeleteCategory}
-            className="w-full py-2 bg-red-600/20 text-red-500 font-black rounded-lg border border-red-500/20 uppercase text-xs hover:bg-red-600/30 transition-all"
-          >
-            Delete Category
-          </button>
-        )}
+      <div className="bg-zinc-900 p-8 rounded-3xl space-y-4">
+        <input type="text" placeholder={t.admin.designTitle} value={title} onChange={e => setTitle(e.target.value)} className="w-full bg-black p-4 rounded-xl outline-none" />
+        <label className="block w-full h-48 border-2 border-dashed border-white/10 rounded-2xl cursor-pointer hover:bg-zinc-800 transition-all flex items-center justify-center overflow-hidden">
+          {preview ? <img src={preview} className="w-full h-full object-cover" /> : <Upload className="text-zinc-600" />}
+          <input type="file" className="hidden" accept="image/*" onChange={handleFile} />
+        </label>
+        <button onClick={handleAdd} className="w-full py-4 bg-blue-600 font-black uppercase rounded-xl">{t.admin.portfolioAdd}</button>
       </div>
-
-      {selectedCategory && (
-        <div className="bg-zinc-900 p-8 rounded-3xl space-y-4 border border-white/5">
-          <h3 className="text-2xl font-black uppercase italic mb-4">Add Item to {selectedCategory}</h3>
-          <input
-            type="text"
-            placeholder="Item title"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            className="w-full bg-black p-4 rounded-xl outline-none border border-white/10"
-          />
-          <label className="block w-full h-48 border-2 border-dashed border-white/10 rounded-2xl cursor-pointer hover:bg-zinc-800 transition-all flex items-center justify-center overflow-hidden">
-            {preview ? (
-              <img src={preview} className="w-full h-full object-cover" alt="preview" />
-            ) : (
-              <Upload className="text-zinc-600" />
-            )}
-            <input type="file" className="hidden" accept="image/*" onChange={handleFile} />
-          </label>
-          <button
-            onClick={handleAddItem}
-            disabled={!title || !preview}
-            className="w-full py-4 bg-blue-600 font-black uppercase rounded-xl disabled:opacity-50"
-          >
-            Add Item
-          </button>
-        </div>
-      )}
-
-      {selectedCategory && items.length > 0 && (
-        <div className="bg-zinc-900 p-8 rounded-3xl border border-white/5">
-          <h3 className="text-2xl font-black uppercase italic mb-6">Items in {selectedCategory}</h3>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {items.map((item) => (
-              <div key={item.id} className="relative group rounded-xl overflow-hidden aspect-video">
-                <img src={item.imageUrl} className="w-full h-full object-cover" alt={item.title} />
-                <button
-                  onClick={() => handleDeleteItem(item.id)}
-                  className="absolute top-2 right-2 p-2 bg-red-600 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
-                >
-                  <Trash2 size={16} />
-                </button>
-                <div className="absolute bottom-0 left-0 right-0 bg-black/70 p-2">
-                  <p className="text-[8px] font-black uppercase text-white truncate">{item.title}</p>
-                </div>
-              </div>
-            ))}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {items.map(item => (
+          <div key={item.id} className="relative group rounded-xl overflow-hidden aspect-video">
+             <img src={item.imageUrl} className="w-full h-full object-cover" />
+             <button onClick={() => remove(ref(database, `portfolio/${item.id}`))} className="absolute top-2 right-2 p-2 bg-red-600 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 size={16} /></button>
           </div>
-        </div>
-      )}
+        ))}
+      </div>
     </div>
   );
 };
@@ -867,7 +756,7 @@ const PortfolioManagerAdmin = () => {
 const UserModerationAdmin = () => {
   const { t } = useTranslation();
   const [users, setUsers] = useState<AppUserMetadata[]>([]);
-  useEffect(() => onValue(ref(database, 'users'), (s: any) => setUsers(Object.values(s.val() || {}))), []);
+  useEffect(() => onValue(ref(database, 'users'), s => setUsers(Object.values(s.val() || {}))), []);
 
   const toggleBlock = async (uid: string, current: boolean) => {
     await set(ref(database, `users/${uid}/blockStatus`), { isBlocked: !current, blockedUntil: !current ? -1 : 0 });
@@ -875,16 +764,16 @@ const UserModerationAdmin = () => {
 
   return (
     <div className="space-y-3">
-      {users.map((u) => (
+      {users.map(u => (
         <div key={u.uid} className="bg-zinc-900 p-4 rounded-2xl flex justify-between items-center">
           <div className="flex items-center gap-4">
-            <img src={u.photoURL} className="w-10 h-10 rounded-full" alt={u.displayName} />
+            <img src={u.photoURL} className="w-10 h-10 rounded-full" />
             <div>
               <p className="font-bold">{u.displayName}</p>
               <p className="text-[10px] text-zinc-500 uppercase">{u.email}</p>
             </div>
           </div>
-          <button onClick={() => toggleBlock(u.uid, !!u.blockStatus?.isBlocked)} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase ${u.blockStatus?.isBlocked ? 'bg-green-600/20 text-green-500' : 'bg-red-600/20 text-red-500'}`}>
+          <button onClick={() => toggleBlock(u.uid, !!u.blockStatus?.isBlocked)} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase ${u.blockStatus?.isBlocked ? t.admin.userUnblock : t.admin.userBlock} `}>
             {u.blockStatus?.isBlocked ? t.admin.userUnblock : t.admin.userBlock}
           </button>
         </div>
@@ -918,7 +807,7 @@ const BroadcasterAdmin: React.FC<{ users: AppUserMetadata[] }> = ({ users }) => 
     if (!title || !msg) return;
     setIsSending(true);
     const id = Math.random().toString(36).substring(7);
-
+    
     const notification: Notification = {
       id,
       title,
@@ -930,9 +819,9 @@ const BroadcasterAdmin: React.FC<{ users: AppUserMetadata[] }> = ({ users }) => 
     };
 
     const path = target === 'global' ? `notifications/global/${id}` : `notifications/private/${target}/${id}`;
-
+    
     await set(ref(database, path), notification);
-
+    
     setTitle('');
     setMsg('');
     setPreview(null);
@@ -945,24 +834,20 @@ const BroadcasterAdmin: React.FC<{ users: AppUserMetadata[] }> = ({ users }) => 
       <div className="flex flex-col md:flex-row gap-4">
         <div className="flex-1">
           <p className="text-[10px] text-zinc-600 font-black uppercase mb-2 ml-1">{t.admin.transmissionTarget}</p>
-          <select value={target} onChange={(e) => setTarget(e.target.value)} className="w-full bg-black p-4 rounded-xl outline-none text-zinc-400 font-black uppercase text-xs border border-white/5">
+          <select value={target} onChange={e => setTarget(e.target.value)} className="w-full bg-black p-4 rounded-xl outline-none text-zinc-400 font-black uppercase text-xs border border-white/5">
             <option value="global">{t.admin.broadcastAll}</option>
-            {users.map((u) => (
-              <option key={u.uid} value={u.uid}>
-                {u.displayName}
-              </option>
-            ))}
+            {users.map(u => <option key={u.uid} value={u.uid}>{u.displayName}</option>)}
           </select>
         </div>
         <div className="flex-1">
           <p className="text-[10px] text-zinc-600 font-black uppercase mb-2 ml-1">{t.admin.headline}</p>
-          <input type="text" placeholder={t.admin.headline} value={title} onChange={(e) => setTitle(e.target.value)} className="w-full bg-black p-4 rounded-xl outline-none border border-white/5" />
+          <input type="text" placeholder={t.admin.headline} value={title} onChange={e => setTitle(e.target.value)} className="w-full bg-black p-4 rounded-xl outline-none border border-white/5" />
         </div>
       </div>
-
+      
       <div>
         <p className="text-[10px] text-zinc-600 font-black uppercase mb-2 ml-1">{t.admin.messageContent}</p>
-        <textarea placeholder={t.admin.messageContent} value={msg} onChange={(e) => setMsg(e.target.value)} className="w-full h-32 bg-black p-4 rounded-xl outline-none resize-none border border-white/5" />
+        <textarea placeholder={t.admin.messageContent} value={msg} onChange={e => setMsg(e.target.value)} className="w-full h-32 bg-black p-4 rounded-xl outline-none resize-none border border-white/5" />
       </div>
 
       <div className="space-y-2">
@@ -970,7 +855,7 @@ const BroadcasterAdmin: React.FC<{ users: AppUserMetadata[] }> = ({ users }) => 
         <div className="flex flex-col md:flex-row gap-4 items-start">
           <label className="flex flex-col items-center justify-center w-40 h-28 border-2 border-dashed border-white/10 rounded-2xl cursor-pointer hover:bg-zinc-800 transition-all group relative overflow-hidden">
             {preview ? (
-              <img src={preview} className="w-full h-full object-cover" alt="preview" />
+              <img src={preview} className="w-full h-full object-cover" />
             ) : (
               <>
                 <ImageIcon className="text-zinc-600 group-hover:text-blue-500 mb-1" size={20} />
@@ -980,9 +865,7 @@ const BroadcasterAdmin: React.FC<{ users: AppUserMetadata[] }> = ({ users }) => 
             <input type="file" className="hidden" accept="image/*" onChange={handleFile} />
           </label>
           {preview && (
-            <button onClick={() => setPreview(null)} className="text-[9px] font-black uppercase text-red-500 hover:text-red-400 transition-colors">
-              {t.admin.discardImage}
-            </button>
+            <button onClick={() => setPreview(null)} className="text-[9px] font-black uppercase text-red-500 hover:text-red-400 transition-colors">{t.admin.discardImage}</button>
           )}
         </div>
       </div>
@@ -993,6 +876,179 @@ const BroadcasterAdmin: React.FC<{ users: AppUserMetadata[] }> = ({ users }) => 
     </div>
   );
 };
+
+// --- Main App Logic ---
+
+export default function App() {
+  const [language, setLanguage] = useState<Language>(() => (localStorage.getItem('lang') as Language) || 'uz-Latn');
+  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState<UserProfile | null>(null);
+  const [blockStatus, setBlockStatus] = useState<BlockStatus | null>(null);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [readIds, setReadIds] = useState<string[]>([]);
+  const [showNotifications, setShowNotifications] = useState(false);
+
+  const { schedule, isWorking, currentTime } = useWorkingHoursLogic();
+
+  useEffect(() => {
+    localStorage.setItem('lang', language);
+  }, [language]);
+
+  const t = useMemo(() => translations[language], [language]);
+
+  useEffect(() => {
+    const unsubscribe = auth.onAuthStateChanged(async (fireUser) => {
+      if (fireUser) {
+        const profile: UserProfile = {
+          uid: fireUser.uid,
+          email: fireUser.email || '',
+          displayName: fireUser.displayName || 'User',
+          photoURL: fireUser.photoURL || `https://ui-avatars.com/api/?name=${fireUser.displayName}&background=random`,
+          isOwner: fireUser.email === OWNER_EMAIL
+        };
+        setUser(profile);
+
+        const snap = await get(ref(database, `users/${fireUser.uid}`));
+        const data = snap.val() as AppUserMetadata | null;
+        if (data?.blockStatus?.isBlocked) setBlockStatus(data.blockStatus);
+        if (data?.readNotifications) setReadIds(data.readNotifications);
+
+        await set(ref(database, `users/${fireUser.uid}`), {
+          ...profile, lastLogin: new Date().toISOString(),
+          blockStatus: data?.blockStatus || null,
+          readNotifications: data?.readNotifications || []
+        });
+
+        onValue(ref(database, 'notifications/global'), s1 => {
+          const gn = Object.values(s1.val() || {}) as Notification[];
+          onValue(ref(database, `notifications/private/${fireUser.uid}`), s2 => {
+            const pn = Object.values(s2.val() || {}) as Notification[];
+            setNotifications([...gn, ...pn].sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
+          });
+        });
+      } else {
+        setUser(null); setBlockStatus(null); setNotifications([]);
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const unreadCount = useMemo(() => notifications.filter(n => !readIds.includes(n.id)).length, [notifications, readIds]);
+
+  const markRead = async (id: string) => {
+    if (!user || readIds.includes(id)) return;
+    const newReadIds = [...readIds, id];
+    setReadIds(newReadIds);
+    await set(ref(database, `users/${user.uid}/readNotifications`), newReadIds);
+  };
+
+  if (loading) return (
+    <LanguageContext.Provider value={{ language, setLanguage, t }}>
+      <LoadingScreen onComplete={() => setLoading(false)} />
+    </LanguageContext.Provider>
+  );
+
+  return (
+    <LanguageContext.Provider value={{ language, setLanguage, t }}>
+      <Router>
+        <div className="min-h-screen bg-[#050505]">
+          {blockStatus?.isBlocked && <BlockedOverlay status={blockStatus} />}
+          <Navbar user={user} unreadCount={unreadCount} onToggleNotifications={() => setShowNotifications(true)} isWorking={isWorking} />
+          
+          <Routes>
+            <Route path="/" element={
+              <div className="relative">
+                <section className="min-h-screen flex flex-col items-center justify-center px-6 pt-20 overflow-hidden">
+                  <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[1000px] h-[1000px] bg-blue-600/5 blur-[160px] rounded-full pointer-events-none" />
+                  
+                  {/* Status Indicator */}
+                  <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="z-10 mb-8 bg-zinc-900/50 backdrop-blur-md border border-white/5 px-6 py-3 rounded-full flex items-center gap-6">
+                    <div className="flex items-center gap-2">
+                       <Clock size={14} className="text-blue-500" />
+                       <span className="text-[10px] font-black uppercase tracking-widest">{currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                    </div>
+                    <div className="h-3 w-px bg-white/10" />
+                    <div className="flex items-center gap-2">
+                       <div className={`w-1.5 h-1.5 rounded-full ${isWorking ? 'bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.5)]' : 'bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.5)]'}`} />
+                       <span className="text-[10px] font-black uppercase tracking-widest">{isWorking ? t.hero.statusOpen : t.hero.statusClosed}</span>
+                    </div>
+                    <div className="h-3 w-px bg-white/10" />
+                    <div className="flex items-center gap-2">
+                       <Calendar size={14} className="text-zinc-500" />
+                       <span className="text-[10px] font-black uppercase tracking-widest text-zinc-400">{schedule.start} - {schedule.end}</span>
+                    </div>
+                  </motion.div>
+
+                  <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="text-center z-10">
+                    <motion.h2 initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-blue-500 font-black uppercase tracking-[0.4em] text-xs mb-6">{t.hero.greeting}</motion.h2>
+                    <h1 className="text-7xl md:text-[10rem] font-black tracking-tighter mb-8 leading-[0.8] italic uppercase">
+                      {t.hero.brand.split(' ')[0]} <br /> <span className="text-blue-600">{t.hero.brand.split(' ')[1]}</span>
+                    </h1>
+                    <p className="text-zinc-600 max-w-2xl mx-auto text-xs md:text-sm mb-12 uppercase tracking-widest font-bold leading-relaxed">
+                      {t.hero.welcome}
+                    </p>
+                    <div className="flex flex-col sm:flex-row items-center justify-center gap-6">
+                      <Link 
+                        to={isWorking ? "/order" : "#"} 
+                        className={`group px-12 py-6 font-black rounded-3xl transition-all duration-500 flex items-center gap-3 shadow-[0_20px_40px_rgba(255,255,255,0.05)] ${isWorking ? 'bg-white text-black hover:bg-blue-600 hover:text-white' : 'bg-zinc-900 text-zinc-600 cursor-not-allowed grayscale'}`}
+                      >
+                        {isWorking ? t.hero.ctaOrder : t.hero.ctaClosed} 
+                        {isWorking && <ArrowRight size={22} className="group-hover:translate-x-1 transition-transform" />}
+                      </Link>
+                      <Link to="/portfolio" className="px-12 py-6 bg-zinc-950 text-white font-black rounded-3xl border border-white/5 hover:border-white/20 transition-all uppercase tracking-widest text-[10px]">{t.hero.ctaGallery}</Link>
+                    </div>
+                  </motion.div>
+                </section>
+              </div>
+            } />
+            
+            <Route path="/order" element={user ? <OrderForm user={user} isWorking={isWorking} /> : (
+              <div className="pt-40 px-6 text-center space-y-6">
+                <h2 className="text-3xl font-black uppercase italic italic">{t.order.loginPrompt}</h2>
+                <button onClick={signInWithGoogle} className="px-10 py-5 bg-blue-600 rounded-2xl font-black uppercase tracking-widest text-xs flex items-center gap-3 mx-auto shadow-[0_20px_40px_rgba(37,99,235,0.2)]">Sign in with Google <ChevronRight size={18}/></button>
+              </div>
+            )} />
+
+            <Route path="/portfolio" element={<Portfolio />} />
+            <Route path="/my-orders" element={user ? <MyOrdersPage user={user} /> : <div className="pt-40 text-center font-black uppercase text-zinc-800">Please Sign In</div>} />
+            <Route path="/admin" element={<AdminDashboard user={user} />} />
+          </Routes>
+
+          <AnimatePresence>
+            {showNotifications && (
+              <div className="fixed inset-0 z-[60] flex justify-end">
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowNotifications(false)} className="absolute inset-0 bg-black/95 backdrop-blur-md" />
+                <motion.div initial={{ x: "100%" }} animate={{ x: 0 }} exit={{ x: "100%" }} transition={{ type: 'spring', damping: 25, stiffness: 200 }} className="relative w-full max-w-lg bg-zinc-950 h-full border-l border-white/5 flex flex-col shadow-2xl">
+                  <div className="p-10 border-b border-white/5 flex items-center justify-between">
+                    <h3 className="text-3xl font-black uppercase tracking-tighter italic">{t.notifications.title}</h3>
+                    <button onClick={() => setShowNotifications(false)} className="p-4 hover:bg-zinc-900 rounded-2xl transition-all"><X size={24} /></button>
+                  </div>
+                  <div className="flex-1 overflow-y-auto p-8 space-y-6 no-scrollbar">
+                    {notifications.length === 0 ? <p className="text-zinc-800 uppercase font-black text-center mt-20 text-[10px]">{t.notifications.noNotifications}</p> : notifications.map(n => (
+                      <div key={n.id} onMouseEnter={() => markRead(n.id)} className={`p-8 bg-zinc-900/50 border ${readIds.includes(n.id) ? 'border-white/5' : 'border-blue-500/30 shadow-[0_0_20px_rgba(59,130,246,0.1)]'} rounded-[2.5rem] space-y-4`}>
+                        <h4 className="font-black text-xl italic uppercase leading-none">{n.title}</h4>
+                        <p className="text-zinc-500 text-sm leading-relaxed">{n.message}</p>
+                        {n.imageUrl && (
+                          <div className="mt-4 rounded-3xl overflow-hidden border border-white/5 aspect-video">
+                            <img src={n.imageUrl} className="w-full h-full object-cover" alt="Notification attachment" />
+                          </div>
+                        )}
+                        <div className="flex items-center justify-between pt-4 border-t border-white/5">
+                          <span className="text-[8px] text-zinc-700 font-black uppercase">{new Date(n.createdAt).toLocaleString()}</span>
+                          {n.link && <a href={n.link} target="_blank" className="text-[9px] font-black uppercase text-blue-500 hover:underline">{t.notifications.openLink}</a>}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </motion.div>
+              </div>
+            )}
+          </AnimatePresence>
+        </div>
+      </Router>
+    </LanguageContext.Provider>
+  );
+}
 
 // --- My Orders Page ---
 const MyOrdersPage: React.FC<{ user: UserProfile }> = ({ user }) => {
@@ -1049,129 +1105,3 @@ const MyOrdersPage: React.FC<{ user: UserProfile }> = ({ user }) => {
     </div>
   );
 };
-// --- Main App Component ---
-
-const App: React.FC = () => {
-  const [user, setUser] = useState<UserProfile | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [language, setLanguage] = useState<Language>('uz-Latn');
-  const [showNotifications, setShowNotifications] = useState(false);
-  const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [unreadCount, setUnreadCount] = useState(0);
-  const [blockStatus, setBlockStatus] = useState<BlockStatus | null>(null);
-
-  useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged(async (authUser) => {
-      if (authUser) {
-        const userRef = ref(database, `users/${authUser.uid}`);
-        const snapshot = await get(userRef);
-        const userData = snapshot.val();
-
-        const profile: UserProfile = {
-          uid: authUser.uid,
-          email: authUser.email || '',
-          displayName: authUser.displayName || 'User',
-          photoURL: authUser.photoURL || '',
-          isOwner: userData?.isOwner || false,
-          blockStatus: userData?.blockStatus || null
-        };
-
-        setBlockStatus(userData?.blockStatus || null);
-        setUser(profile);
-
-        // Save/update user metadata
-        await set(userRef, {
-          uid: authUser.uid,
-          email: authUser.email,
-          displayName: authUser.displayName,
-          photoURL: authUser.photoURL,
-          isOwner: userData?.isOwner || false,
-          blockStatus: userData?.blockStatus || null,
-          lastSeen: new Date().toISOString()
-        });
-
-        // Load notifications
-        const globalNotifs = await get(ref(database, 'notifications/global'));
-        const privNotifs = await get(ref(database, `notifications/private/${authUser.uid}`));
-
-        const allNotifs: Notification[] = [
-          ...Object.values(globalNotifs.val() || {}),
-          ...Object.values(privNotifs.val() || {})
-        ] as Notification[];
-
-        setNotifications(allNotifs.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
-        setUnreadCount(allNotifs.filter(n => !n.read).length);
-      } else {
-        setUser(null);
-        setNotifications([]);
-        setUnreadCount(0);
-      }
-      setLoading(false);
-    });
-
-    return unsubscribe;
-  }, []);
-
-  if (loading) return <LoadingScreen />;
-
-  if (blockStatus?.isBlocked) {
-    return (
-      <LanguageContext.Provider value={{ language, setLanguage, t: translations[language] }}>
-        <BlockedOverlay status={blockStatus} />
-      </LanguageContext.Provider>
-    );
-  }
-
-  return (
-    <LanguageContext.Provider value={{ language, setLanguage, t: translations[language] }}>
-      <Router>
-        <div className="bg-black text-white min-h-screen">
-          <Navbar 
-            user={user} 
-            unreadCount={unreadCount} 
-            onToggleNotifications={() => setShowNotifications(!showNotifications)}
-          />
-
-          {showNotifications && (
-            <div className="fixed top-24 right-6 z-[39] w-96 max-h-96 bg-zinc-900 border border-white/10 rounded-2xl overflow-y-auto shadow-2xl">
-              <div className="p-4 border-b border-white/5 flex justify-between items-center sticky top-0 bg-zinc-900">
-                <h3 className="font-black uppercase text-sm">{translations[language].common.notifications}</h3>
-                <button onClick={() => setShowNotifications(false)} className="text-zinc-500 hover:text-white"><X size={18} /></button>
-              </div>
-              {notifications.length === 0 ? (
-                <p className="p-4 text-zinc-600 text-xs uppercase font-black text-center">{translations[language].common.noNotifications}</p>
-              ) : (
-                notifications.map(n => (
-                  <div key={n.id} className="p-4 border-b border-white/5 hover:bg-white/5 transition-colors cursor-pointer">
-                    {n.imageUrl && <img src={n.imageUrl} alt={n.title} className="w-full h-32 object-cover rounded-lg mb-2" />}
-                    <h4 className="font-black text-sm uppercase">{n.title}</h4>
-                    <p className="text-[10px] text-zinc-500 mt-1">{n.message}</p>
-                  </div>
-                ))
-              )}
-            </div>
-          )}
-
-          <Routes>
-            <Route path="/" element={<Portfolio />} />
-            
-            {user ? (
-              <>
-                <Route path="/order" element={<OrderForm user={user} />} />
-                <Route path="/my-orders" element={<MyOrdersPage user={user} />} />
-                {user.isOwner && <Route path="/admin" element={<AdminDashboard user={user} />} />}
-              </>
-            ) : (
-              <>
-                <Route path="/order" element={<div className="pt-40 text-center uppercase font-black text-zinc-800">{translations[language].common.pleaseSignIn}</div>} />
-                <Route path="/my-orders" element={<div className="pt-40 text-center uppercase font-black text-zinc-800">{translations[language].common.pleaseSignIn}</div>} />
-              </>
-            )}
-          </Routes>
-        </div>
-      </Router>
-    </LanguageContext.Provider>
-  );
-};
-
-export default App;
