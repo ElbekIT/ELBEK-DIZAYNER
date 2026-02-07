@@ -1,69 +1,52 @@
 
+import { Order } from '../types';
+import { TELEGRAM_CONFIG } from '../constants';
+
 /**
- * ELBEK DESIGN - BACKEND NOTIFICATION SERVICE
- * 
- * IMPORTANT: This code is meant to be deployed as a Firebase Cloud Function.
- * Direct frontend calls to Telegram are unreliable and insecure.
- * 
- * IMPLEMENTATION STEPS:
- * 1. Initialize Firebase Functions in your project.
- * 2. Copy the code below into your `functions/src/index.ts` file.
- * 3. Deploy using `firebase deploy --only functions`.
+ * Sends order details to the specified Telegram Admin ID via the Bot API.
  */
-
-/* 
-// --- CLOUD FUNCTION CODE (FOR BACKEND DEPLOYMENT) ---
-
-import * as functions from 'firebase-functions';
-import * as admin from 'firebase-admin';
-import axios from 'axios';
-
-admin.initializeApp();
-
-const BOT_TOKEN = '7264338255:AAGE9iqGXeergNWkF5b7U43NQvGCwC5mi8w';
-const ADMIN_ID = '7714287797';
-
-export const onOrderCreated = functions.database.ref('/orders/{orderId}')
-    .onCreate(async (snapshot, context) => {
-        const order = snapshot.val();
-        
-        const messageText = `
-🚀 <b>Yangi Buyurtma! (Elbek Design)</b>
+export const sendOrderToTelegram = async (order: Order) => {
+  const message = `
+🚀 *Yangi Buyurtma! (Elbek Design)*
 -----------------------------
-👤 <b>Mijoz:</b> ${order.firstName} ${order.lastName || ''}
-📞 <b>Tel:</b> ${order.phoneNumber}
-📱 <b>Telegram:</b> ${order.telegramUsername}
-🎮 <b>O'yin:</b> ${order.game}
-🎨 <b>Turi:</b> ${order.designTypes?.join(', ') || 'Noma\'lum'}
-💰 <b>Narxi:</b> ${order.totalPrice?.toLocaleString() || 0} UZS
-🎟️ <b>Promokod:</b> ${order.promoCode || 'Yo\'q'}
-📅 <b>Sana:</b> ${new Date(order.createdAt).toLocaleString()}
+👤 *Mijoz:* ${order.firstName} ${order.lastName || ''}
+📞 *Tel:* ${order.phoneNumber}
+📱 *Telegram:* ${order.telegramUsername}
+🎮 *O'yin:* ${order.game}
+🎨 *Turi:* ${order.designTypes?.join(', ')}
+💰 *Narxi:* ${order.totalPrice?.toLocaleString()} UZS
+🎟️ *Promokod:* ${order.promoCode || 'Yo\'q'}
+📅 *Sana:* ${new Date(order.createdAt).toLocaleString('uz-UZ', { timeZone: 'Asia/Tashkent' })}
 
-📝 <b>Xabar:</b>
-<i>${order.message || 'Tavsif yo\'q'}</i>
+📝 *Xabar:*
+_${order.message || 'Tavsif yo\'q'}_
 -----------------------------
 ✅ Holat: Tekshirilmoqda
-        `.trim();
+  `.trim();
 
-        try {
-            await axios.get(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
-                params: {
-                    chat_id: ADMIN_ID,
-                    text: messageText,
-                    parse_mode: 'HTML'
-                }
-            });
-            console.log(`Notification sent for order ${order.id}`);
-        } catch (error) {
-            console.error("Telegram API Error:", error);
-        }
+  try {
+    const url = `https://api.telegram.org/bot${TELEGRAM_CONFIG.BOT_TOKEN}/sendMessage`;
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        chat_id: TELEGRAM_CONFIG.ADMIN_ID,
+        text: message,
+        parse_mode: 'Markdown',
+      }),
     });
-*/
 
-/**
- * Dummy export to prevent frontend build errors if the file is imported.
- */
-export const sendOrderToTelegram = async (order: any) => {
-  console.warn("Direct frontend Telegram notifications are disabled for reliability. Use Firebase Cloud Functions instead.");
-  return true;
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error("Telegram API Error:", errorData);
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error("Failed to send Telegram notification:", error);
+    return false;
+  }
 };
