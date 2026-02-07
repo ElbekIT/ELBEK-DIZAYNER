@@ -7,13 +7,13 @@ import {
   ShieldCheck, CreditCard, Check, Menu, X, Phone, Send, ArrowRight,
   Bell, Trash2, ShieldAlert, Clock, ExternalLink, Image as ImageIcon,
   Users, Layers, Megaphone, Upload, FileImage, Search, Gamepad2, Info, CreditCard as CardIcon,
-  Globe
+  Globe, Calendar
 } from 'lucide-react';
 import { LoadingScreen } from './components/LoadingScreen';
 import { ProtectedImage } from './components/ProtectedImage';
 import { auth, signInWithGoogle, logout, database } from './firebase';
 import { ref, push, onValue, set, get, remove } from 'firebase/database';
-import { UserProfile, Order, OrderStatus, PortfolioItem, Notification, BlockStatus, AppUserMetadata } from './types';
+import { UserProfile, Order, OrderStatus, PortfolioItem, Notification, BlockStatus, AppUserMetadata, WorkingHours } from './types';
 import { GAMES, DESIGN_PRICES, PROMO_CODE, PROMO_DISCOUNT, OWNER_EMAIL } from './constants';
 import { Language, translations } from './translations';
 
@@ -47,7 +47,7 @@ const NotificationBadge: React.FC<{ count: number }> = ({ count }) => {
 const BlockedOverlay: React.FC<{ status: BlockStatus }> = ({ status }) => {
   const { t } = useTranslation();
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/95 backdrop-blur-xl px-6">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/95 backdrop-blur-md px-6">
       <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="max-w-md w-full text-center bg-zinc-900 border border-red-500/20 p-12 rounded-[3rem]">
         <div className="w-20 h-20 bg-red-600/20 text-red-500 rounded-3xl flex items-center justify-center mx-auto mb-8">
           <ShieldAlert size={40} />
@@ -58,6 +58,36 @@ const BlockedOverlay: React.FC<{ status: BlockStatus }> = ({ status }) => {
       </motion.div>
     </div>
   );
+};
+
+// --- Working Hours Hook ---
+
+const useWorkingHoursLogic = () => {
+  const [schedule, setSchedule] = useState<WorkingHours>({ start: "10:00", end: "19:00" });
+  const [currentTime, setCurrentTime] = useState(new Date());
+
+  useEffect(() => {
+    // Sync schedule with DB
+    const scheduleRef = ref(database, 'config/workingHours');
+    const unsub = onValue(scheduleRef, (snapshot) => {
+      const data = snapshot.val();
+      if (data) setSchedule(data);
+    });
+
+    // Sync clock
+    const timer = setInterval(() => setCurrentTime(new Date()), 60000);
+    return () => {
+      unsub();
+      clearInterval(timer);
+    };
+  }, []);
+
+  const isWorking = useMemo(() => {
+    const nowStr = `${currentTime.getHours().toString().padStart(2, '0')}:${currentTime.getMinutes().toString().padStart(2, '0')}`;
+    return nowStr >= schedule.start && nowStr <= schedule.end;
+  }, [currentTime, schedule]);
+
+  return { schedule, isWorking, currentTime };
 };
 
 // --- Navbar ---
@@ -111,15 +141,16 @@ const LanguageSwitcher: React.FC = () => {
 const Navbar: React.FC<{ 
   user: UserProfile | null, 
   unreadCount: number, 
-  onToggleNotifications: () => void 
-}> = ({ user, unreadCount, onToggleNotifications }) => {
+  onToggleNotifications: () => void,
+  isWorking: boolean
+}> = ({ user, unreadCount, onToggleNotifications, isWorking }) => {
   const [isOpen, setIsOpen] = useState(false);
   const location = useLocation();
   const { t } = useTranslation();
 
   const navLinks = [
     { name: t.nav.home, path: '/', icon: Plus },
-    { name: t.nav.order, path: '/order', icon: ShoppingBag },
+    { name: t.nav.order, path: '/order', icon: ShoppingBag, disabled: !isWorking },
     { name: t.nav.portfolio, path: '/portfolio', icon: Images },
     { name: t.nav.myOrders, path: '/my-orders', icon: User },
   ];
@@ -136,7 +167,13 @@ const Navbar: React.FC<{
 
         <div className="hidden md:flex items-center gap-8">
           {navLinks.map(link => (
-            <Link key={link.path} to={link.path} className={`text-sm font-medium transition-colors hover:text-blue-500 ${location.pathname === link.path ? 'text-blue-500' : 'text-zinc-400'}`}>{link.name}</Link>
+            <Link 
+              key={link.path} 
+              to={link.disabled ? '#' : link.path} 
+              className={`text-sm font-medium transition-colors hover:text-blue-500 ${location.pathname === link.path ? 'text-blue-500' : 'text-zinc-400'} ${link.disabled ? 'opacity-30 cursor-not-allowed' : ''}`}
+            >
+              {link.name}
+            </Link>
           ))}
           
           <div className="flex items-center gap-4 pl-4 border-l border-white/10">
@@ -173,7 +210,7 @@ const Navbar: React.FC<{
           <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="md:hidden bg-zinc-950 border-b border-white/5 overflow-hidden">
             <div className="px-6 py-8 flex flex-col gap-6">
               {navLinks.map(link => (
-                <Link key={link.path} to={link.path} onClick={() => setIsOpen(false)} className="text-lg font-bold flex items-center gap-4"><link.icon className="text-blue-500" size={20} />{link.name}</Link>
+                <Link key={link.path} to={link.disabled ? '#' : link.path} onClick={() => !link.disabled && setIsOpen(false)} className={`text-lg font-bold flex items-center gap-4 ${link.disabled ? 'opacity-30' : ''}`}><link.icon className="text-blue-500" size={20} />{link.name}</Link>
               ))}
               {!user && <button onClick={() => { signInWithGoogle(); setIsOpen(false); }} className="w-full py-4 bg-blue-600 rounded-xl font-bold">{t.nav.signIn}</button>}
             </div>
@@ -196,7 +233,7 @@ const formatPhoneNumber = (value: string) => {
   return formatted;
 };
 
-const OrderForm: React.FC<{ user: UserProfile }> = ({ user }) => {
+const OrderForm: React.FC<{ user: UserProfile, isWorking: boolean }> = ({ user, isWorking }) => {
   const { t } = useTranslation();
   const [step, setStep] = useState(1);
   const [showIntro, setShowIntro] = useState(true);
@@ -234,7 +271,7 @@ const OrderForm: React.FC<{ user: UserProfile }> = ({ user }) => {
   const totalPrice = hasDiscount ? basePrice * (1 - PROMO_DISCOUNT) : basePrice;
 
   const handleSubmit = async () => {
-    if (!formData.paymentConfirmed || submitting) return;
+    if (!formData.paymentConfirmed || submitting || !isWorking) return;
     
     try {
       setSubmitting(true);
@@ -262,8 +299,6 @@ const OrderForm: React.FC<{ user: UserProfile }> = ({ user }) => {
         newOrder.promoCode = formData.promoCode;
       }
 
-      // 100% RELIABILITY: Only save to the database. 
-      // The Telegram message is now handled by a Firebase Cloud Function (Backend).
       await set(ref(database, `orders/${orderId}`), newOrder);
       
       setDone(true);
@@ -274,6 +309,19 @@ const OrderForm: React.FC<{ user: UserProfile }> = ({ user }) => {
       setSubmitting(false);
     }
   };
+
+  if (!isWorking) {
+    return (
+      <div className="pt-40 px-6 text-center max-w-2xl mx-auto">
+        <div className="w-20 h-20 bg-zinc-900 rounded-3xl flex items-center justify-center mx-auto mb-8 text-zinc-600">
+           <Clock size={40} />
+        </div>
+        <h2 className="text-3xl font-black uppercase italic italic mb-4">{t.hero.statusClosed}</h2>
+        <p className="text-zinc-500 uppercase tracking-widest text-[10px] font-black">{t.order.closedWarning}</p>
+        <Link to="/" className="inline-block mt-8 px-8 py-4 bg-zinc-900 rounded-xl text-xs font-black uppercase tracking-widest">{t.nav.home}</Link>
+      </div>
+    );
+  }
 
   if (showIntro) {
     return (
@@ -543,7 +591,7 @@ const Portfolio: React.FC = () => {
 
 const AdminDashboard: React.FC<{ user: UserProfile | null }> = ({ user }) => {
   const { t } = useTranslation();
-  const [activeTab, setActiveTab] = useState<'orders' | 'portfolio' | 'users' | 'broadcast'>('orders');
+  const [activeTab, setActiveTab] = useState<'orders' | 'portfolio' | 'users' | 'broadcast' | 'schedule'>('orders');
   const [users, setUsers] = useState<AppUserMetadata[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
 
@@ -566,9 +614,9 @@ const AdminDashboard: React.FC<{ user: UserProfile | null }> = ({ user }) => {
           <h2 className="text-5xl font-black uppercase tracking-tighter italic">{t.admin.title}</h2>
           <p className="text-zinc-600 uppercase tracking-widest text-[10px] font-black mt-2">{t.admin.subtitle}</p>
         </div>
-        <div className="flex bg-zinc-900 p-2 rounded-2xl border border-white/5 gap-1">
-          {['orders', 'portfolio', 'users', 'broadcast'].map(tab => (
-            <button key={tab} onClick={() => setActiveTab(tab as any)} className={`px-6 py-4 rounded-xl text-xs font-black uppercase transition-all ${activeTab === tab ? 'bg-blue-600 text-white' : 'text-zinc-500 hover:text-white'}`}>{t.admin.tabs[tab as keyof typeof t.admin.tabs]}</button>
+        <div className="flex bg-zinc-900 p-2 rounded-2xl border border-white/5 gap-1 overflow-x-auto no-scrollbar max-w-full">
+          {['orders', 'portfolio', 'users', 'broadcast', 'schedule'].map(tab => (
+            <button key={tab} onClick={() => setActiveTab(tab as any)} className={`whitespace-nowrap px-6 py-4 rounded-xl text-xs font-black uppercase transition-all ${activeTab === tab ? 'bg-blue-600 text-white' : 'text-zinc-500 hover:text-white'}`}>{t.admin.tabs[tab as keyof typeof t.admin.tabs]}</button>
           ))}
         </div>
       </div>
@@ -613,8 +661,48 @@ const AdminDashboard: React.FC<{ user: UserProfile | null }> = ({ user }) => {
           {activeTab === 'portfolio' && <PortfolioManagerAdmin />}
           {activeTab === 'users' && <UserModerationAdmin />}
           {activeTab === 'broadcast' && <BroadcasterAdmin users={users} />}
+          {activeTab === 'schedule' && <ScheduleAdmin />}
         </motion.div>
       </AnimatePresence>
+    </div>
+  );
+};
+
+const ScheduleAdmin = () => {
+  const { t } = useTranslation();
+  const [schedule, setSchedule] = useState<WorkingHours>({ start: "10:00", end: "19:00" });
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    onValue(ref(database, 'config/workingHours'), (s) => {
+      const data = s.val();
+      if (data) setSchedule(data);
+    });
+  }, []);
+
+  const save = async () => {
+    setSaving(true);
+    await set(ref(database, 'config/workingHours'), schedule);
+    setSaving(false);
+    alert(t.admin.schedule.success);
+  };
+
+  return (
+    <div className="bg-zinc-900 p-8 rounded-[2rem] max-w-lg mx-auto space-y-8 border border-white/5">
+       <h3 className="text-2xl font-black uppercase italic italic text-center">{t.admin.schedule.title}</h3>
+       <div className="grid grid-cols-2 gap-8">
+          <div className="space-y-2">
+             <label className="text-[10px] font-black uppercase text-zinc-500 ml-1">{t.admin.schedule.start}</label>
+             <input type="time" value={schedule.start} onChange={e => setSchedule({...schedule, start: e.target.value})} className="w-full bg-black p-4 rounded-xl text-white outline-none border border-white/5" />
+          </div>
+          <div className="space-y-2">
+             <label className="text-[10px] font-black uppercase text-zinc-500 ml-1">{t.admin.schedule.end}</label>
+             <input type="time" value={schedule.end} onChange={e => setSchedule({...schedule, end: e.target.value})} className="w-full bg-black p-4 rounded-xl text-white outline-none border border-white/5" />
+          </div>
+       </div>
+       <button onClick={save} disabled={saving} className="w-full py-5 bg-blue-600 font-black uppercase rounded-2xl shadow-xl transition-all hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50">
+          {saving ? '...' : t.admin.schedule.save}
+       </button>
     </div>
   );
 };
@@ -800,6 +888,8 @@ export default function App() {
   const [readIds, setReadIds] = useState<string[]>([]);
   const [showNotifications, setShowNotifications] = useState(false);
 
+  const { schedule, isWorking, currentTime } = useWorkingHoursLogic();
+
   useEffect(() => {
     localStorage.setItem('lang', language);
   }, [language]);
@@ -863,13 +953,32 @@ export default function App() {
       <Router>
         <div className="min-h-screen bg-[#050505]">
           {blockStatus?.isBlocked && <BlockedOverlay status={blockStatus} />}
-          <Navbar user={user} unreadCount={unreadCount} onToggleNotifications={() => setShowNotifications(true)} />
+          <Navbar user={user} unreadCount={unreadCount} onToggleNotifications={() => setShowNotifications(true)} isWorking={isWorking} />
           
           <Routes>
             <Route path="/" element={
               <div className="relative">
                 <section className="min-h-screen flex flex-col items-center justify-center px-6 pt-20 overflow-hidden">
                   <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[1000px] h-[1000px] bg-blue-600/5 blur-[160px] rounded-full pointer-events-none" />
+                  
+                  {/* Status Indicator */}
+                  <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="z-10 mb-8 bg-zinc-900/50 backdrop-blur-md border border-white/5 px-6 py-3 rounded-full flex items-center gap-6">
+                    <div className="flex items-center gap-2">
+                       <Clock size={14} className="text-blue-500" />
+                       <span className="text-[10px] font-black uppercase tracking-widest">{currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                    </div>
+                    <div className="h-3 w-px bg-white/10" />
+                    <div className="flex items-center gap-2">
+                       <div className={`w-1.5 h-1.5 rounded-full ${isWorking ? 'bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.5)]' : 'bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.5)]'}`} />
+                       <span className="text-[10px] font-black uppercase tracking-widest">{isWorking ? t.hero.statusOpen : t.hero.statusClosed}</span>
+                    </div>
+                    <div className="h-3 w-px bg-white/10" />
+                    <div className="flex items-center gap-2">
+                       <Calendar size={14} className="text-zinc-500" />
+                       <span className="text-[10px] font-black uppercase tracking-widest text-zinc-400">{schedule.start} - {schedule.end}</span>
+                    </div>
+                  </motion.div>
+
                   <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="text-center z-10">
                     <motion.h2 initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-blue-500 font-black uppercase tracking-[0.4em] text-xs mb-6">{t.hero.greeting}</motion.h2>
                     <h1 className="text-7xl md:text-[10rem] font-black tracking-tighter mb-8 leading-[0.8] italic uppercase">
@@ -879,7 +988,13 @@ export default function App() {
                       {t.hero.welcome}
                     </p>
                     <div className="flex flex-col sm:flex-row items-center justify-center gap-6">
-                      <Link to="/order" className="group px-12 py-6 bg-white text-black font-black rounded-3xl hover:bg-blue-600 hover:text-white transition-all duration-500 flex items-center gap-3 shadow-[0_20px_40px_rgba(255,255,255,0.05)]">{t.hero.ctaOrder} <ArrowRight size={22} className="group-hover:translate-x-1 transition-transform" /></Link>
+                      <Link 
+                        to={isWorking ? "/order" : "#"} 
+                        className={`group px-12 py-6 font-black rounded-3xl transition-all duration-500 flex items-center gap-3 shadow-[0_20px_40px_rgba(255,255,255,0.05)] ${isWorking ? 'bg-white text-black hover:bg-blue-600 hover:text-white' : 'bg-zinc-900 text-zinc-600 cursor-not-allowed grayscale'}`}
+                      >
+                        {isWorking ? t.hero.ctaOrder : t.hero.ctaClosed} 
+                        {isWorking && <ArrowRight size={22} className="group-hover:translate-x-1 transition-transform" />}
+                      </Link>
                       <Link to="/portfolio" className="px-12 py-6 bg-zinc-950 text-white font-black rounded-3xl border border-white/5 hover:border-white/20 transition-all uppercase tracking-widest text-[10px]">{t.hero.ctaGallery}</Link>
                     </div>
                   </motion.div>
@@ -887,7 +1002,7 @@ export default function App() {
               </div>
             } />
             
-            <Route path="/order" element={user ? <OrderForm user={user} /> : (
+            <Route path="/order" element={user ? <OrderForm user={user} isWorking={isWorking} /> : (
               <div className="pt-40 px-6 text-center space-y-6">
                 <h2 className="text-3xl font-black uppercase italic italic">{t.order.loginPrompt}</h2>
                 <button onClick={signInWithGoogle} className="px-10 py-5 bg-blue-600 rounded-2xl font-black uppercase tracking-widest text-xs flex items-center gap-3 mx-auto shadow-[0_20px_40px_rgba(37,99,235,0.2)]">Sign in with Google <ChevronRight size={18}/></button>
