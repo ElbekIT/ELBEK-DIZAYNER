@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { HashRouter as Router, Routes, Route, Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -14,7 +13,7 @@ import { auth, signInWithGoogle, logout, database } from './firebase';
 import { ref, push, onValue, set, get, remove } from 'firebase/database';
 import { UserProfile, Order, OrderStatus, PortfolioItem, Notification, BlockStatus, AppUserMetadata } from './types';
 import { GAMES, DESIGN_PRICES, PROMO_CODE, PROMO_DISCOUNT, OWNER_EMAIL } from './constants';
-// import { sendOrderToTelegram } from './services/telegramService';
+
 
 // --- Shared Components ---
 
@@ -189,6 +188,15 @@ const handleSubmit = async () => {
       status: OrderStatus.CHECKING,
       createdAt: new Date().toISOString()
     };
+
+
+
+sendOrderToTelegram(newOrder)
+  .then(() => console.log("Telegram message sent"))
+  .catch(err => console.error("Telegram error:", err));
+
+
+
 
     console.log("Initiating order submission for ID:", orderId);
 
