@@ -5,25 +5,25 @@ export const LoadingScreen = ({ onComplete }: { onComplete: () => void }) => {
   const [progress, setProgress] = useState(0);
 
   useEffect(() => {
-    let current = 0;
+    let value = 0;
 
-    const tick = () => {
-      const increment =
-        current < 60 ? Math.random() * 3 + 1 :
-        current < 85 ? Math.random() * 1.5 :
-        Math.random() * 0.6;
+    const animate = () => {
+      const speed =
+        value < 60 ? Math.random() * 3 + 1 :
+        value < 90 ? Math.random() * 1.2 :
+        Math.random() * 0.4;
 
-      current = Math.min(100, current + increment);
-      setProgress(Math.floor(current));
+      value = Math.min(100, value + speed);
+      setProgress(Math.floor(value));
 
-      if (current < 100) {
-        requestAnimationFrame(tick);
+      if (value < 100) {
+        requestAnimationFrame(animate);
       } else {
-        setTimeout(onComplete, 900);
+        setTimeout(onComplete, 1000);
       }
     };
 
-    tick();
+    animate();
   }, [onComplete]);
 
   return (
@@ -31,43 +31,55 @@ export const LoadingScreen = ({ onComplete }: { onComplete: () => void }) => {
       <motion.div
         className="fixed inset-0 z-[9999] flex items-center justify-center bg-black"
         initial={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
+        exit={{ opacity: 0, scale: 1.05 }}
         transition={{ duration: 1 }}
       >
-        <div className="w-full max-w-sm px-8 text-center">
+        <div className="relative text-center">
 
           {/* LOGO */}
           <motion.div
             className="mx-auto mb-10 w-24 h-24 rounded-full border border-white/10
-                       backdrop-blur-md flex items-center justify-center"
+                       flex items-center justify-center backdrop-blur-md"
             animate={{ rotate: 360 }}
-            transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
+            transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
           >
-            <span className="text-2xl font-black italic text-white tracking-wide">
-              ED
-            </span>
+            <span className="text-2xl font-black italic text-white">ED</span>
           </motion.div>
 
+          {/* CURVE LINE */}
+          <svg
+            width="180"
+            height="260"
+            viewBox="0 0 180 260"
+            className="mx-auto mb-6"
+          >
+            <motion.path
+              d="M90 10 C150 80 150 180 90 250"
+              fill="none"
+              stroke="#3b82f6"
+              strokeWidth="2"
+              initial={{ pathLength: 0, opacity: 0 }}
+              animate={{ pathLength: progress / 100, opacity: 1 }}
+              transition={{ ease: "easeInOut" }}
+            />
+          </svg>
+
           {/* TITLE */}
-          <h1 className="text-sm tracking-[0.45em] uppercase text-white/90 mb-6">
+          <h1 className="text-sm tracking-[0.45em] uppercase text-white/90">
             Elbek Design
           </h1>
 
-          {/* BAR */}
-          <div className="relative h-[3px] w-full overflow-hidden rounded-full bg-white/10">
-            <motion.div
-              className="absolute inset-y-0 left-0 bg-blue-500 shadow-[0_0_20px_rgba(59,130,246,0.8)]"
-              animate={{ width: `${progress}%` }}
-              transition={{ ease: "easeOut" }}
-            />
-          </div>
+          {/* SUBTEXT */}
+          <p className="mt-2 text-xs tracking-widest text-white/40">
+            Elevating your presence
+          </p>
 
-          {/* PERCENT */}
+          {/* PROGRESS */}
           <motion.p
             key={progress}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="mt-5 text-xs tracking-widest text-white/40"
+            className="mt-6 text-xs tracking-widest text-white/60"
           >
             {progress}%
           </motion.p>
