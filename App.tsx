@@ -1034,3 +1034,129 @@ const MyOrdersPage: React.FC<{ user: UserProfile }> = ({ user }) => {
     </div>
   );
 };
+// --- Main App Component ---
+
+const App: React.FC = () => {
+  const [user, setUser] = useState<UserProfile | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [language, setLanguage] = useState<Language>('uz-Latn');
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [blockStatus, setBlockStatus] = useState<BlockStatus | null>(null);
+
+  useEffect(() => {
+    const unsubscribe = auth.onAuthStateChanged(async (authUser) => {
+      if (authUser) {
+        const userRef = ref(database, `users/${authUser.uid}`);
+        const snapshot = await get(userRef);
+        const userData = snapshot.val();
+
+        const profile: UserProfile = {
+          uid: authUser.uid,
+          email: authUser.email || '',
+          displayName: authUser.displayName || 'User',
+          photoURL: authUser.photoURL || '',
+          isOwner: userData?.isOwner || false,
+          blockStatus: userData?.blockStatus || null
+        };
+
+        setBlockStatus(userData?.blockStatus || null);
+        setUser(profile);
+
+        // Save/update user metadata
+        await set(userRef, {
+          uid: authUser.uid,
+          email: authUser.email,
+          displayName: authUser.displayName,
+          photoURL: authUser.photoURL,
+          isOwner: userData?.isOwner || false,
+          blockStatus: userData?.blockStatus || null,
+          lastSeen: new Date().toISOString()
+        });
+
+        // Load notifications
+        const globalNotifs = await get(ref(database, 'notifications/global'));
+        const privNotifs = await get(ref(database, `notifications/private/${authUser.uid}`));
+
+        const allNotifs: Notification[] = [
+          ...Object.values(globalNotifs.val() || {}),
+          ...Object.values(privNotifs.val() || {})
+        ] as Notification[];
+
+        setNotifications(allNotifs.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
+        setUnreadCount(allNotifs.filter(n => !n.read).length);
+      } else {
+        setUser(null);
+        setNotifications([]);
+        setUnreadCount(0);
+      }
+      setLoading(false);
+    });
+
+    return unsubscribe;
+  }, []);
+
+  if (loading) return <LoadingScreen />;
+
+  if (blockStatus?.isBlocked) {
+    return (
+      <LanguageContext.Provider value={{ language, setLanguage, t: translations[language] }}>
+        <BlockedOverlay status={blockStatus} />
+      </LanguageContext.Provider>
+    );
+  }
+
+  return (
+    <LanguageContext.Provider value={{ language, setLanguage, t: translations[language] }}>
+      <Router>
+        <div className="bg-black text-white min-h-screen">
+          <Navbar 
+            user={user} 
+            unreadCount={unreadCount} 
+            onToggleNotifications={() => setShowNotifications(!showNotifications)}
+          />
+
+          {showNotifications && (
+            <div className="fixed top-24 right-6 z-[39] w-96 max-h-96 bg-zinc-900 border border-white/10 rounded-2xl overflow-y-auto shadow-2xl">
+              <div className="p-4 border-b border-white/5 flex justify-between items-center sticky top-0 bg-zinc-900">
+                <h3 className="font-black uppercase text-sm">{translations[language].common.notifications}</h3>
+                <button onClick={() => setShowNotifications(false)} className="text-zinc-500 hover:text-white"><X size={18} /></button>
+              </div>
+              {notifications.length === 0 ? (
+                <p className="p-4 text-zinc-600 text-xs uppercase font-black text-center">{translations[language].common.noNotifications}</p>
+              ) : (
+                notifications.map(n => (
+                  <div key={n.id} className="p-4 border-b border-white/5 hover:bg-white/5 transition-colors cursor-pointer">
+                    {n.imageUrl && <img src={n.imageUrl} alt={n.title} className="w-full h-32 object-cover rounded-lg mb-2" />}
+                    <h4 className="font-black text-sm uppercase">{n.title}</h4>
+                    <p className="text-[10px] text-zinc-500 mt-1">{n.message}</p>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+
+          <Routes>
+            <Route path="/" element={<Portfolio />} />
+            
+            {user ? (
+              <>
+                <Route path="/order" element={<OrderForm user={user} />} />
+                <Route path="/my-orders" element={<MyOrdersPage user={user} />} />
+                {user.isOwner && <Route path="/admin" element={<AdminDashboard user={user} />} />}
+              </>
+            ) : (
+              <>
+                <Route path="/order" element={<div className="pt-40 text-center uppercase font-black text-zinc-800">{translations[language].common.pleaseSignIn}</div>} />
+                <Route path="/my-orders" element={<div className="pt-40 text-center uppercase font-black text-zinc-800">{translations[language].common.pleaseSignIn}</div>} />
+              </>
+            )}
+          </Routes>
+        </div>
+      </Router>
+    </LanguageContext.Provider>
+  );
+};
+
+export default App;
