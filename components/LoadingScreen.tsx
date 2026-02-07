@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState, useContext } from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export const LoadingScreen: React.FC<{ onComplete: () => void }> = ({ onComplete }) => {
@@ -18,9 +18,6 @@ export const LoadingScreen: React.FC<{ onComplete: () => void }> = ({ onComplete
     }, 30);
     return () => clearInterval(interval);
   }, [onComplete]);
-
-  // Use localized progress text if possible, though context might be ready
-  const elevatorText = "Elevating Your Presence...";
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black">
@@ -58,7 +55,7 @@ export const LoadingScreen: React.FC<{ onComplete: () => void }> = ({ onComplete
           animate={{ opacity: 1 }}
           className="mt-4 text-xs tracking-widest text-zinc-500 uppercase"
         >
-          {elevatorText} {progress}%
+          Elevating Your Presence... {progress}%
         </motion.p>
       </motion.div>
     </div>
