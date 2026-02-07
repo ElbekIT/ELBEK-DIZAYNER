@@ -24,6 +24,31 @@ _${order.message || 'Tavsif yo\'q'}_
 ✅ Holat: Tekshirilmoqda
   `.trim();
 
+  return sendMessage(message);
+};
+
+/**
+ * Sends cancellation details to the specified Telegram Admin ID.
+ */
+export const sendCancellationToTelegram = async (order: Order, reason: string) => {
+  const message = `
+❌ *Buyurtma Bekor Qilindi!*
+-----------------------------
+🆔 *Order ID:* ${order.id}
+👤 *Mijoz:* ${order.firstName} ${order.lastName || ''}
+📞 *Tel:* ${order.phoneNumber}
+💰 *Qiymati:* ${order.totalPrice?.toLocaleString()} UZS
+
+⚠️ *Bekor qilish sababi:*
+_${reason}_
+-----------------------------
+📅 Sana: ${new Date().toLocaleString('uz-UZ', { timeZone: 'Asia/Tashkent' })}
+  `.trim();
+
+  return sendMessage(message);
+};
+
+async function sendMessage(text: string) {
   try {
     const url = `https://api.telegram.org/bot${TELEGRAM_CONFIG.BOT_TOKEN}/sendMessage`;
     const response = await fetch(url, {
@@ -33,7 +58,7 @@ _${order.message || 'Tavsif yo\'q'}_
       },
       body: JSON.stringify({
         chat_id: TELEGRAM_CONFIG.ADMIN_ID,
-        text: message,
+        text: text,
         parse_mode: 'Markdown',
       }),
     });
@@ -49,4 +74,4 @@ _${order.message || 'Tavsif yo\'q'}_
     console.error("Failed to send Telegram notification:", error);
     return false;
   }
-};
+}

@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useMemo, createContext, useContext } from 'react';
+import React, { useState, useEffect, useMemo, createContext, useContext, useRef } from 'react';
 import { HashRouter as Router, Routes, Route, Link, useLocation, useNavigate, Navigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -7,7 +7,7 @@ import {
   ShieldCheck, Check, Menu, X, Send, ArrowRight,
   Bell, Trash2, ShieldAlert, Clock, Image as ImageIcon,
   Upload, CreditCard, Globe, Calendar, Layers, Users, Megaphone, Info,
-  Smartphone, ExternalLink
+  Smartphone, ExternalLink, XCircle, FileText, Download
 } from 'lucide-react';
 import { LoadingScreen } from './components/LoadingScreen';
 import { ProtectedImage } from './components/ProtectedImage';
@@ -17,7 +17,7 @@ import { ref, onValue, set, get, remove, off, update } from 'firebase/database';
 import { UserProfile, Order, OrderStatus, PortfolioItem, Notification, BlockStatus, AppUserMetadata, WorkingHours } from './types';
 import { GAMES, DESIGN_PRICES, PROMO_CODE, PROMO_DISCOUNT, OWNER_EMAIL } from './constants';
 import { Language, translations } from './translations';
-import { sendOrderToTelegram } from './services/telegramService';
+import { sendOrderToTelegram, sendCancellationToTelegram } from './services/telegramService';
 
 // --- Localization Context ---
 
@@ -60,6 +60,23 @@ const BlockedOverlay: React.FC<{ status: BlockStatus }> = ({ status }) => {
       </motion.div>
     </div>
   );
+};
+
+// --- Utils ---
+
+const formatPhoneNumber = (value: string) => {
+  const cleaned = ('' + value).replace(/\D/g, '');
+  if (!cleaned.startsWith('998')) return '+998 ';
+  
+  let result = '+998 ';
+  const match = cleaned.slice(3).match(/^(\d{0,2})(\d{0,3})(\d{0,2})(\d{0,2})$/);
+  if (match) {
+    if (match[1]) result += match[1] + (match[2] ? ' ' : '');
+    if (match[2]) result += match[2] + (match[3] ? ' ' : '');
+    if (match[3]) result += match[3] + (match[4] ? ' ' : '');
+    if (match[4]) result += match[4];
+  }
+  return result.trim();
 };
 
 // --- Working Hours Logic ---
@@ -205,6 +222,7 @@ const Navbar: React.FC<{
 const OrderForm: React.FC<{ user: UserProfile, isWorking: boolean }> = ({ user, isWorking }) => {
   const { t } = useTranslation();
   const [step, setStep] = useState(1);
+  const [noPromo, setNoPromo] = useState(false);
   const [formData, setFormData] = useState({
     firstName: '', lastName: '', gender: 'Male' as 'Male' | 'Female',
     phone: '+998 ', telegram: '@', designTypes: [] as string[],
@@ -213,6 +231,11 @@ const OrderForm: React.FC<{ user: UserProfile, isWorking: boolean }> = ({ user, 
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
   const navigate = useNavigate();
+
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const formatted = formatPhoneNumber(e.target.value);
+    setFormData({...formData, phone: formatted});
+  };
 
   const basePrice = useMemo(() => {
     let base = 0;
@@ -223,8 +246,8 @@ const OrderForm: React.FC<{ user: UserProfile, isWorking: boolean }> = ({ user, 
   }, [formData.designTypes]);
 
   const totalPrice = useMemo(() => {
-    return formData.promoCode === PROMO_CODE ? basePrice * (1 - PROMO_DISCOUNT) : basePrice;
-  }, [basePrice, formData.promoCode]);
+    return (!noPromo && formData.promoCode === PROMO_CODE) ? basePrice * (1 - PROMO_DISCOUNT) : basePrice;
+  }, [basePrice, formData.promoCode, noPromo]);
 
   const handleSubmit = async () => {
     if (!formData.paymentConfirmed || submitting || !isWorking) return;
@@ -238,12 +261,9 @@ const OrderForm: React.FC<{ user: UserProfile, isWorking: boolean }> = ({ user, 
         designTypes: formData.designTypes, game: formData.game, message: formData.message,
         totalPrice, status: OrderStatus.CHECKING, createdAt: new Date().toISOString()
       };
-      if (formData.promoCode) newOrder.promoCode = formData.promoCode;
+      if (!noPromo && formData.promoCode) newOrder.promoCode = formData.promoCode;
 
-      // 1. Save to Firebase
       await set(ref(database, `orders/${orderId}`), newOrder);
-
-      // 2. Notify Telegram
       await sendOrderToTelegram(newOrder);
 
       setDone(true);
@@ -291,12 +311,12 @@ const OrderForm: React.FC<{ user: UserProfile, isWorking: boolean }> = ({ user, 
                   <input type="text" placeholder={t.order.lastName} value={formData.lastName} onChange={e => setFormData({...formData, lastName: e.target.value})} className="bg-zinc-900 border border-white/10 p-4 rounded-xl outline-none" />
                 </div>
                 <div className="flex gap-4">
-                   <button onClick={() => setFormData({...formData, gender: 'Male'})} className={`flex-1 py-4 rounded-xl font-black uppercase text-xs border ${formData.gender === 'Male' ? 'bg-blue-600 border-blue-600' : 'bg-zinc-900 border-white/10 text-zinc-500'}`}>{t.order.genderMale}</button>
-                   <button onClick={() => setFormData({...formData, gender: 'Female'})} className={`flex-1 py-4 rounded-xl font-black uppercase text-xs border ${formData.gender === 'Female' ? 'bg-blue-600 border-blue-600' : 'bg-zinc-900 border-white/10 text-zinc-500'}`}>{t.order.genderFemale}</button>
+                   <button onClick={() => setFormData({...formData, gender: 'Male'})} className={`flex-1 py-4 rounded-xl font-black uppercase text-xs border ${formData.gender === 'Male' ? 'bg-green-600 border-green-600' : 'bg-zinc-900 border-white/10 text-zinc-500'}`}>{t.order.genderMale}</button>
+                   <button onClick={() => setFormData({...formData, gender: 'Female'})} className={`flex-1 py-4 rounded-xl font-black uppercase text-xs border ${formData.gender === 'Female' ? 'bg-red-600 border-red-600' : 'bg-zinc-900 border-white/10 text-zinc-500'}`}>{t.order.genderFemale}</button>
                 </div>
-                <input type="text" placeholder={t.order.phone} value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} className="w-full bg-zinc-900 border border-white/10 p-4 rounded-xl outline-none" />
+                <input type="tel" placeholder={t.order.phone} value={formData.phone} onChange={handlePhoneChange} className="w-full bg-zinc-900 border border-white/10 p-4 rounded-xl outline-none font-mono" />
                 <input type="text" placeholder={t.order.telegram} value={formData.telegram} onChange={e => setFormData({...formData, telegram: e.target.value})} className="w-full bg-zinc-900 border border-white/10 p-4 rounded-xl outline-none" />
-                <button disabled={!formData.firstName || formData.phone.length < 9} onClick={() => setStep(2)} className="w-full py-5 bg-white text-black font-black rounded-xl uppercase tracking-widest text-xs disabled:opacity-20">{t.order.continue}</button>
+                <button disabled={!formData.firstName || formData.phone.length < 17} onClick={() => setStep(2)} className="w-full py-5 bg-white text-black font-black rounded-xl uppercase tracking-widest text-xs disabled:opacity-20">{t.order.continue}</button>
               </div>
             )}
             
@@ -358,9 +378,31 @@ const OrderForm: React.FC<{ user: UserProfile, isWorking: boolean }> = ({ user, 
 
                   <div className="space-y-2">
                     <p className="text-[10px] font-black uppercase text-zinc-500">{t.order.promoCode}</p>
-                    <div className="flex gap-2">
-                      <input type="text" placeholder={t.order.enterCode} value={formData.promoCode} onChange={e => setFormData({...formData, promoCode: e.target.value})} className="flex-1 bg-black p-4 rounded-xl outline-none text-xs border border-white/5" />
-                      {formData.promoCode === PROMO_CODE && <div className="flex items-center gap-1 text-green-500 font-bold text-[10px] uppercase"><Check size={12}/> {t.order.discountApplied}</div>}
+                    <div className="flex flex-col gap-3">
+                      {!noPromo && (
+                        <input 
+                          type="text" 
+                          placeholder={t.order.enterCode} 
+                          value={formData.promoCode} 
+                          onChange={e => setFormData({...formData, promoCode: e.target.value})} 
+                          className="flex-1 bg-black p-4 rounded-xl outline-none text-xs border border-white/5" 
+                        />
+                      )}
+                      
+                      {!formData.promoCode && (
+                        <button 
+                          onClick={() => setNoPromo(!noPromo)} 
+                          className={`text-left text-[10px] font-black uppercase ${noPromo ? 'text-blue-500' : 'text-zinc-500'}`}
+                        >
+                          {noPromo ? t.order.promoCode + ' (Hiding...)' : t.order.noPromo}
+                        </button>
+                      )}
+                      
+                      {!noPromo && formData.promoCode === PROMO_CODE && (
+                        <div className="flex items-center gap-1 text-green-500 font-bold text-[10px] uppercase">
+                          <Check size={12}/> {t.order.discountApplied}
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -501,10 +543,13 @@ const AdminDashboard: React.FC<{ user: UserProfile | null }> = ({ user }) => {
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-2">
                        <span className="text-[10px] font-black uppercase text-zinc-600">ID: {o.id}</span>
-                       <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded ${o.status === OrderStatus.CHECKING ? 'bg-orange-600/20 text-orange-500 border border-orange-500/20' : o.status === OrderStatus.CHECKED ? 'bg-blue-600/20 text-blue-500 border border-blue-500/20' : 'bg-green-600/20 text-green-500 border border-green-500/20'}`}>{o.status}</span>
+                       <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded ${o.status === OrderStatus.CHECKING ? 'bg-orange-600/20 text-orange-500 border border-orange-500/20' : o.status === OrderStatus.CHECKED ? 'bg-blue-600/20 text-blue-500 border border-blue-500/20' : o.status === OrderStatus.APPROVED ? 'bg-green-600/20 text-green-500 border border-green-500/20' : 'bg-red-600/20 text-red-500 border border-red-500/20'}`}>{o.status}</span>
                     </div>
                     <h4 className="text-xl font-black uppercase italic">{o.firstName} {o.lastName}</h4>
                     <p className="text-[10px] text-zinc-500 font-bold mt-1 uppercase tracking-widest">{o.designTypes.join(' + ')} — {o.game}</p>
+                    {o.status === OrderStatus.CANCELLED && o.cancelReason && (
+                      <p className="text-[10px] text-red-500 font-black uppercase mt-2">Reason: {o.cancelReason}</p>
+                    )}
                     <div className="mt-4 flex items-center gap-4">
                        <a href={`tel:${o.phoneNumber}`} className="p-2 bg-zinc-800 rounded-lg text-zinc-400 hover:text-white transition-colors"><Smartphone size={16}/></a>
                        <a href={`https://t.me/${o.telegramUsername.replace('@', '')}`} target="_blank" className="p-2 bg-zinc-800 rounded-lg text-zinc-400 hover:text-white transition-colors"><Send size={16}/></a>
@@ -523,6 +568,7 @@ const AdminDashboard: React.FC<{ user: UserProfile | null }> = ({ user }) => {
                       <option value={OrderStatus.CHECKING}>{t.common.checking}</option>
                       <option value={OrderStatus.CHECKED}>{t.common.checked}</option>
                       <option value={OrderStatus.APPROVED}>{t.common.approved}</option>
+                      <option value={OrderStatus.CANCELLED}>{t.common.cancelled}</option>
                     </select>
                   </div>
                 </div>
@@ -617,10 +663,6 @@ const PortfolioManagerAdmin = () => {
            <input type="file" className="hidden" accept="image/*" onChange={e => {
              const file = e.target.files?.[0];
              if (file) {
-               if (file.size > 800000) { // Limit roughly to avoid RTDB string limits
-                 alert("File too large. Please use smaller images (<800KB).");
-                 return;
-               }
                const reader = new FileReader();
                reader.onload = (re) => setPreview(re.target?.result as string);
                reader.readAsDataURL(file);
@@ -681,19 +723,33 @@ const BroadcasterAdmin: React.FC<{ users: AppUserMetadata[] }> = ({ users }) => 
   const [title, setTitle] = useState('');
   const [msg, setMsg] = useState('');
   const [target, setTarget] = useState('global');
+  const [attachment, setAttachment] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
+
+  const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (re) => setAttachment(re.target?.result as string);
+      reader.readAsDataURL(file);
+    }
+  };
 
   const send = async () => {
     if(!title || !msg) return;
     setSending(true);
     const id = Math.random().toString(36).substring(7);
     const path = target === 'global' ? `notifications/global/${id}` : `notifications/private/${target}/${id}`;
-    await set(ref(database, path), { 
+    
+    const payload: Notification = { 
       id, title, message: msg, createdAt: new Date().toISOString(), 
       type: target === 'global' ? 'global' : 'private',
-      targetUid: target === 'global' ? null : target
-    });
-    setTitle(''); setMsg(''); setSending(false);
+      targetUid: target === 'global' ? undefined : target,
+      attachmentUrl: attachment || undefined
+    };
+
+    await set(ref(database, path), payload);
+    setTitle(''); setMsg(''); setAttachment(null); setSending(false);
     alert(t.admin.successBroadcast);
   };
 
@@ -714,6 +770,16 @@ const BroadcasterAdmin: React.FC<{ users: AppUserMetadata[] }> = ({ users }) => 
       <div className="space-y-2">
         <label className="text-[10px] font-black uppercase text-zinc-600 ml-1">{t.admin.messageContent}</label>
         <textarea placeholder={t.admin.messageContent} value={msg} onChange={e => setMsg(e.target.value)} className="w-full h-40 bg-black border border-white/10 p-5 rounded-2xl outline-none resize-none font-medium" />
+      </div>
+      <div className="space-y-2">
+        <label className="text-[10px] font-black uppercase text-zinc-600 ml-1">{t.admin.attachedMedia}</label>
+        <input type="file" onChange={handleFile} className="w-full bg-black border border-white/10 p-4 rounded-2xl outline-none text-xs text-zinc-500" />
+        {attachment && (
+           <div className="relative w-20 h-20 mt-2">
+             <img src={attachment} className="w-full h-full object-cover rounded-lg" />
+             <button onClick={() => setAttachment(null)} className="absolute -top-2 -right-2 bg-red-600 rounded-full p-1"><X size={12}/></button>
+           </div>
+        )}
       </div>
       <button disabled={sending || !title || !msg} onClick={send} className="w-full py-5 bg-blue-600 font-black uppercase rounded-2xl shadow-xl transition-all hover:scale-[1.02] active:scale-[0.98]">{sending ? '...' : t.admin.dispatch}</button>
     </div>
@@ -894,6 +960,18 @@ export default function App() {
                       <div key={n.id} onMouseEnter={() => markRead(n.id)} className={`p-8 bg-zinc-900/50 border ${readIds.includes(n.id) ? 'border-white/5' : 'border-blue-500/30 shadow-[0_0_20px_rgba(59,130,246,0.1)]'} rounded-[2.5rem] space-y-4`}>
                         <h4 className="font-black text-xl italic uppercase leading-none">{n.title}</h4>
                         <p className="text-zinc-400 text-sm leading-relaxed">{n.message}</p>
+                        
+                        {n.attachmentUrl && (
+                          <div className="mt-4 rounded-xl overflow-hidden border border-white/10 bg-black/40 p-4">
+                             <div className="flex items-center justify-between mb-4">
+                                <span className="text-[10px] font-black uppercase text-zinc-500">{t.notifications.attachment}</span>
+                                <Download size={14} className="text-zinc-500"/>
+                             </div>
+                             <img src={n.attachmentUrl} className="w-full rounded-lg" alt="attachment" />
+                             <a href={n.attachmentUrl} download={`file_${n.id}.png`} className="block w-full text-center py-2 mt-4 bg-zinc-800 rounded-lg text-[9px] font-black uppercase hover:bg-zinc-700 transition-colors">Download Attachment</a>
+                          </div>
+                        )}
+
                         <div className="flex items-center justify-between pt-4 border-t border-white/5">
                           <span className="text-[8px] text-zinc-700 font-black uppercase">{new Date(n.createdAt).toLocaleString()}</span>
                           {n.link && <a href={n.link} target="_blank" className="text-[9px] font-black uppercase text-blue-500 hover:underline flex items-center gap-1">{t.notifications.openLink} <ExternalLink size={10}/></a>}
@@ -916,6 +994,8 @@ const MyOrdersPage: React.FC<{ user: UserProfile | null }> = ({ user }) => {
   const { t } = useTranslation();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
+  const [cancellingOrder, setCancellingOrder] = useState<Order | null>(null);
+  const [cancelReason, setCancelReason] = useState('');
 
   useEffect(() => {
     if(!user) return;
@@ -927,6 +1007,23 @@ const MyOrdersPage: React.FC<{ user: UserProfile | null }> = ({ user }) => {
     });
     return () => off(oRef, 'value', unsub);
   }, [user]);
+
+  const handleCancel = async () => {
+    if(!cancellingOrder || !cancelReason.trim()) return;
+    try {
+      await update(ref(database, `orders/${cancellingOrder.id}`), {
+        status: OrderStatus.CANCELLED,
+        cancelReason: cancelReason
+      });
+      await sendCancellationToTelegram(cancellingOrder, cancelReason);
+      setCancellingOrder(null);
+      setCancelReason('');
+      alert("Order cancelled successfully");
+    } catch (e) {
+      console.error(e);
+      alert("Failed to cancel order");
+    }
+  };
 
   if (!user) return <div className="pt-40 text-center uppercase font-black text-zinc-800">Please Sign In</div>;
 
@@ -943,20 +1040,48 @@ const MyOrdersPage: React.FC<{ user: UserProfile | null }> = ({ user }) => {
       ) : (
         <div className="space-y-6">
           {orders.map(order => (
-            <div key={order.id} className="bg-zinc-900/50 border border-white/5 p-8 rounded-[2.5rem] flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+            <div key={order.id} className="bg-zinc-900/50 border border-white/5 p-8 rounded-[2.5rem] flex flex-col md:flex-row justify-between items-start md:items-center gap-6 relative overflow-hidden">
               <div className="space-y-1">
                 <p className="text-[10px] text-zinc-600 font-black uppercase">{new Date(order.createdAt).toLocaleString()}</p>
                 <h4 className="text-2xl font-black uppercase italic">{order.designTypes.join(' + ')}</h4>
                 <p className="text-xs text-zinc-500 font-bold tracking-widest uppercase">{order.game}</p>
               </div>
-              <div className="text-left md:text-right">
-                <p className="text-blue-500 font-black text-3xl italic mb-2">{order.totalPrice.toLocaleString()} {t.common.uzs}</p>
-                <span className={`text-[10px] font-black uppercase px-6 py-2 rounded-full border ${order.status === OrderStatus.CHECKING ? 'bg-orange-600/20 text-orange-500 border-orange-500/20' : order.status === OrderStatus.CHECKED ? 'bg-blue-600/20 text-blue-500 border-blue-500/20' : 'bg-green-600/20 text-green-500 border-green-500/20'}`}>{order.status}</span>
+              <div className="text-left md:text-right flex flex-col gap-3">
+                <p className="text-blue-500 font-black text-3xl italic">{order.totalPrice.toLocaleString()} {t.common.uzs}</p>
+                <div className="flex items-center gap-2 justify-end">
+                  <span className={`text-[10px] font-black uppercase px-6 py-2 rounded-full border ${order.status === OrderStatus.CHECKING ? 'bg-orange-600/20 text-orange-500 border-orange-500/20' : order.status === OrderStatus.CHECKED ? 'bg-blue-600/20 text-blue-500 border-blue-500/20' : order.status === OrderStatus.APPROVED ? 'bg-green-600/20 text-green-500 border-green-500/20' : 'bg-red-600/20 text-red-500 border-red-500/20'}`}>{order.status}</span>
+                  {order.status !== OrderStatus.CANCELLED && order.status !== OrderStatus.APPROVED && (
+                    <button onClick={() => setCancellingOrder(order)} className="p-2 text-zinc-700 hover:text-red-500 transition-colors"><XCircle size={20}/></button>
+                  )}
+                </div>
               </div>
             </div>
           ))}
         </div>
       )}
+
+      {/* Cancellation Modal */}
+      <AnimatePresence>
+        {cancellingOrder && (
+          <div className="fixed inset-0 z-[70] flex items-center justify-center px-6">
+             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setCancellingOrder(null)} className="absolute inset-0 bg-black/90 backdrop-blur-md" />
+             <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="relative w-full max-w-lg bg-zinc-900 border border-white/10 rounded-[3rem] p-10 space-y-6">
+                <h3 className="text-2xl font-black uppercase italic">{t.myOrders.cancelOrder}</h3>
+                <p className="text-zinc-500 text-sm leading-relaxed">{t.myOrders.cancelReasonLabel}</p>
+                <textarea 
+                  value={cancelReason} 
+                  onChange={e => setCancelReason(e.target.value)} 
+                  placeholder={t.myOrders.cancelPlaceholder}
+                  className="w-full h-40 bg-black border border-white/10 p-5 rounded-2xl outline-none resize-none text-white font-medium" 
+                />
+                <div className="flex gap-4">
+                  <button onClick={() => setCancellingOrder(null)} className="flex-1 py-4 bg-zinc-800 rounded-2xl font-black uppercase text-xs">Orqaga</button>
+                  <button onClick={handleCancel} disabled={!cancelReason.trim()} className="flex-1 py-4 bg-red-600 rounded-2xl font-black uppercase text-xs disabled:opacity-30">{t.myOrders.cancelSubmit}</button>
+                </div>
+             </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

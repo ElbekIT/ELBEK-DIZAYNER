@@ -67,6 +67,11 @@ export const translations = {
       title: 'Mening qaydlarim',
       noOrders: 'Faol buyurtmalar topilmadi.',
       id: 'ID',
+      cancelOrder: 'Bekor qilish',
+      cancelConfirm: 'Chindan ham ushbu buyurtmani bekor qilmoqchimisiz?',
+      cancelReasonLabel: 'Buyurtmani bekor qilish sababini batafsil tushuntirib bering:',
+      cancelSubmit: 'Tasdiqlash',
+      cancelPlaceholder: 'Sababni kiriting...',
     },
     admin: {
       title: 'Admin tuguni',
@@ -96,7 +101,7 @@ export const translations = {
       transmissionTarget: 'Xabar manzili',
       headline: 'Sarlavha',
       messageContent: 'Xabar matni',
-      attachedMedia: 'Biriktirilgan media (ixtiyoriy)',
+      attachedMedia: 'Biriktirilgan fayl',
       discardImage: 'Rasmni bekor qilish',
       dispatch: 'Xabarni yuborish',
       transmitting: 'Yuborilmoqda...',
@@ -107,6 +112,7 @@ export const translations = {
       title: 'Bildirishnomalar',
       noNotifications: 'Kiruvchi xabarlar yoʻq',
       openLink: 'Havolani ochish',
+      attachment: 'Biriktirilgan fayl',
     },
     loading: {
       elevating: 'Oʻzligingizni oshirmoqdamiz...',
@@ -116,6 +122,7 @@ export const translations = {
       checking: 'Tekshirilmoqda',
       checked: 'Tekshirildi',
       approved: 'Tasdiqlandi',
+      cancelled: 'Bekor qilindi',
     }
   },
   'uz-Cyrl': {
@@ -183,6 +190,11 @@ export const translations = {
       title: 'Менинг қайдларим',
       noOrders: 'Фаол буюртмалар топилмади.',
       id: 'ID',
+      cancelOrder: 'Бекор қилиш',
+      cancelConfirm: 'Чиндан ҳам ушбу буюртмани бекор қилмоқчимисиз?',
+      cancelReasonLabel: 'Буюртмани бекор қилиш сабабини батафсил тушунтириб беринг:',
+      cancelSubmit: 'Тасдиқлаш',
+      cancelPlaceholder: 'Сабабни киритинг...',
     },
     admin: {
       title: 'Админ тугуни',
@@ -212,7 +224,7 @@ export const translations = {
       transmissionTarget: 'Хабар манзили',
       headline: 'Сарлавҳа',
       messageContent: 'Хабар матни',
-      attachedMedia: 'Бириктирилган медиа (ихтиёрий)',
+      attachedMedia: 'Бириктирилган файл',
       discardImage: 'Расмни бекор қилиш',
       dispatch: 'Хабарни юбориш',
       transmitting: 'Юборилмоқда...',
@@ -223,6 +235,7 @@ export const translations = {
       title: 'Билдиришномалар',
       noNotifications: 'Кирувчи хабарлар йўқ',
       openLink: 'Ҳаволани очиш',
+      attachment: 'Бириктирилган файл',
     },
     loading: {
       elevating: 'Ўзлигингизни оширмоқдамиз...',
@@ -232,6 +245,7 @@ export const translations = {
       checking: 'Текширилмоқда',
       checked: 'Текширилди',
       approved: 'Тасдиқланди',
+      cancelled: 'Бекор қилинди',
     }
   },
   ru: {
@@ -299,6 +313,11 @@ export const translations = {
       title: 'Мои записи',
       noOrders: 'Активных заказов не найдено.',
       id: 'ID',
+      cancelOrder: 'Отменить',
+      cancelConfirm: 'Вы действительно хотите отменить этот заказ?',
+      cancelReasonLabel: 'Пожалуйста, подробно объясните причину отмены заказа:',
+      cancelSubmit: 'Подтвердить',
+      cancelPlaceholder: 'Введите причину...',
     },
     admin: {
       title: 'Узел администратора',
@@ -328,7 +347,7 @@ export const translations = {
       transmissionTarget: 'Цель рассылки',
       headline: 'Заголовок',
       messageContent: 'Текст сообщения',
-      attachedMedia: 'Прикрепленное медиа (опционально)',
+      attachedMedia: 'Прикрепленный файл',
       discardImage: 'Удалить изображение',
       dispatch: 'Отправить сообщение',
       transmitting: 'Отправка...',
@@ -339,6 +358,7 @@ export const translations = {
       title: 'Уведомления',
       noNotifications: 'Нет входящих сообщений',
       openLink: 'Открыть ссылку',
+      attachment: 'Прикрепленный файл',
     },
     loading: {
       elevating: 'Повышаем ваш уровень...',
@@ -348,6 +368,7 @@ export const translations = {
       checking: 'Проверка',
       checked: 'Проверено',
       approved: 'Одобрено',
+      cancelled: 'Отменено',
     }
   }
 };
