@@ -1,10 +1,14 @@
-'use client';
-
 
 import React, { useState, useEffect, useMemo, useRef, createContext, useContext } from 'react';
 import { HashRouter as Router, Routes, Route, Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, User, ShoppingBag, Images, CheckCircle2, ChevronRight, LogOut, LogIn, ShieldCheck, CreditCard, Check, Menu, X, Phone, Send, ArrowRight, Bell, Trash2, ShieldAlert, Clock, ExternalLink, ImageIcon, Users, Layers, Megaphone, Upload, FileImage, Search, Gamepad2, Info, CarIcon as CardIcon, Globe } from 'lucide-react';
+import { 
+  Plus, User, ShoppingBag, Images, CheckCircle2, ChevronRight, LogOut, LogIn,
+  ShieldCheck, CreditCard, Check, Menu, X, Phone, Send, ArrowRight,
+  Bell, Trash2, ShieldAlert, Clock, ExternalLink, Image as ImageIcon,
+  Users, Layers, Megaphone, Upload, FileImage, Search, Gamepad2, Info, CreditCard as CardIcon,
+  Globe
+} from 'lucide-react';
 import { LoadingScreen } from './components/LoadingScreen';
 import { ProtectedImage } from './components/ProtectedImage';
 import { auth, signInWithGoogle, logout, database } from './firebase';
@@ -150,7 +154,7 @@ const Navbar: React.FC<{
                   <span className="text-sm font-bold">{user.displayName}</span>
                   {user.isOwner && <span className="text-[10px] uppercase text-blue-500 font-black">Owner</span>}
                 </div>
-                <img src={user.photoURL || "/placeholder.svg"} alt="profile" className="w-9 h-9 rounded-full ring-2 ring-blue-600" />
+                <img src={user.photoURL} alt="profile" className="w-9 h-9 rounded-full ring-2 ring-blue-600" />
                 <button onClick={logout} className="p-2 text-zinc-500 hover:text-red-500 transition-colors"><LogOut size={18} /></button>
               </div>
             ) : (
@@ -507,43 +511,17 @@ const OrderForm: React.FC<{ user: UserProfile }> = ({ user }) => {
 
 // --- Portfolio View ---
 
-interface PortfolioCategory {
-  id: string;
-  name: string;
-  createdAt: string;
-}
-
-interface PortfolioItemExtended extends PortfolioItem {
-  categoryId: string;
-}
-
 const Portfolio: React.FC = () => {
   const { t } = useTranslation();
-  const [categories, setCategories] = useState<PortfolioCategory[]>([]);
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const [items, setItems] = useState<PortfolioItemExtended[]>([]);
+  const [items, setItems] = useState<PortfolioItem[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    return onValue(ref(database, 'portfolioCategories'), (snapshot) => {
-      const cats = Object.values(snapshot.val() || {}) as PortfolioCategory[];
-      setCategories(cats.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()));
-      if (cats.length > 0 && !selectedCategory) {
-        setSelectedCategory(cats[0].id);
-      }
-    });
-  }, [selectedCategory]);
-
-  useEffect(() => {
-    return onValue(ref(database, 'portfolioItems'), (snapshot) => {
-      setItems(Object.values(snapshot.val() || {}) as PortfolioItemExtended[]);
+    return onValue(ref(database, 'portfolio'), (snapshot) => {
+      setItems(Object.values(snapshot.val() || {}) as PortfolioItem[]);
       setLoading(false);
     });
   }, []);
-
-  const filteredItems = selectedCategory 
-    ? items.filter(item => item.categoryId === selectedCategory)
-    : items;
 
   return (
     <div className="pt-32 pb-20 px-6 max-w-7xl mx-auto">
@@ -553,72 +531,18 @@ const Portfolio: React.FC = () => {
       </motion.div>
 
       {loading ? (
-        <div className="space-y-8">
-          <div className="flex gap-4 overflow-x-auto pb-4">
-            {[1,2,3,4].map(i => <div key={i} className="h-12 w-32 bg-zinc-900 animate-pulse rounded-xl flex-shrink-0" />)}
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {[1,2,3,4,5,6].map(i => <div key={i} className="aspect-video bg-zinc-900 animate-pulse rounded-2xl" />)}
-          </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {[1,2,3,4,5,6].map(i => <div key={i} className="aspect-video bg-zinc-900 animate-pulse rounded-2xl" />)}
         </div>
       ) : (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-12">
-          {/* Category Navigation */}
-          {categories.length > 0 && (
-            <div className="flex gap-4 overflow-x-auto pb-4 -mx-6 px-6">
-              {categories.map(cat => (
-                <motion.button
-                  key={cat.id}
-                  onClick={() => setSelectedCategory(cat.id)}
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  className={`px-6 py-3 rounded-xl font-black uppercase text-xs tracking-wider flex-shrink-0 transition-all ${
-                    selectedCategory === cat.id
-                      ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30'
-                      : 'bg-zinc-900 text-zinc-400 border border-white/10 hover:border-white/20 hover:text-white'
-                  }`}
-                >
-                  {cat.name}
-                </motion.button>
-              ))}
-            </div>
-          )}
-
-          {/* Portfolio Grid */}
-          {filteredItems.length === 0 ? (
-            <div className="text-center py-20">
-              <p className="text-zinc-700 font-black uppercase text-sm">{selectedCategory ? 'No items in this category yet' : 'No portfolio categories available'}</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              <AnimatePresence mode="wait">
-                {filteredItems.map((item) => (
-                  <motion.div
-                    key={item.id}
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.95 }}
-                    className="group cursor-pointer"
-                  >
-                    <div className="relative overflow-hidden rounded-3xl border border-white/5 hover:border-white/20 transition-all">
-                      <ProtectedImage
-                        src={item.imageUrl}
-                        alt={item.title}
-                        className="aspect-video w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                      />
-                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors duration-300 flex items-end">
-                        <p className="text-white font-black text-sm uppercase tracking-wider p-4 transform translate-y-full group-hover:translate-y-0 transition-transform duration-300 w-full">
-                          {item.title}
-                        </p>
-                      </div>
-                    </div>
-                    <p className="mt-4 text-[10px] font-black tracking-widest text-zinc-500 uppercase italic text-center group-hover:text-zinc-300 transition-colors">{item.title}</p>
-                  </motion.div>
-                ))}
-              </AnimatePresence>
-            </div>
-          )}
-        </motion.div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {items.map((item) => (
+            <motion.div key={item.id} initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}>
+              <ProtectedImage src={item.imageUrl} alt={item.title} className="aspect-video rounded-3xl border border-white/5" />
+              <p className="mt-4 text-[10px] font-black tracking-widest text-zinc-500 uppercase italic text-center">{item.title}</p>
+            </motion.div>
+          ))}
+        </div>
       )}
     </div>
   );
@@ -706,29 +630,11 @@ const AdminDashboard: React.FC<{ user: UserProfile | null }> = ({ user }) => {
 
 const PortfolioManagerAdmin = () => {
   const { t } = useTranslation();
-  const [categories, setCategories] = useState<PortfolioCategory[]>([]);
-  const [items, setItems] = useState<PortfolioItemExtended[]>([]);
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const [newCategoryName, setNewCategoryName] = useState('');
+  const [items, setItems] = useState<PortfolioItem[]>([]);
   const [title, setTitle] = useState('');
   const [preview, setPreview] = useState<string | null>(null);
-  const [showAddCategory, setShowAddCategory] = useState(false);
 
-  useEffect(() => {
-    return onValue(ref(database, 'portfolioCategories'), s => {
-      const cats = Object.values(s.val() || {}) as PortfolioCategory[];
-      setCategories(cats.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()));
-      if (cats.length > 0 && !selectedCategory) {
-        setSelectedCategory(cats[0].id);
-      }
-    });
-  }, [selectedCategory]);
-
-  useEffect(() => {
-    return onValue(ref(database, 'portfolioItems'), s => {
-      setItems(Object.values(s.val() || {}) as PortfolioItemExtended[]);
-    });
-  }, []);
+  useEffect(() => onValue(ref(database, 'portfolio'), s => setItems(Object.values(s.val() || {}))), []);
 
   const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -739,206 +645,31 @@ const PortfolioManagerAdmin = () => {
     }
   };
 
-  const handleAddCategory = async () => {
-    if (!newCategoryName.trim()) return;
+  const handleAdd = async () => {
+    if (!title || !preview) return;
     const id = Math.random().toString(36).substring(7);
-    await set(ref(database, `portfolioCategories/${id}`), {
-      id,
-      name: newCategoryName,
-      createdAt: new Date().toISOString()
-    });
-    setNewCategoryName('');
-    setShowAddCategory(false);
+    await set(ref(database, `portfolio/${id}`), { id, title, imageUrl: preview, createdAt: new Date().toISOString() });
+    setTitle(''); setPreview(null);
   };
-
-  const handleDeleteCategory = async (catId: string) => {
-    if (confirm('Delete this category and all its images?')) {
-      await remove(ref(database, `portfolioCategories/${catId}`));
-      const itemsToDelete = items.filter(item => item.categoryId === catId);
-      for (const item of itemsToDelete) {
-        await remove(ref(database, `portfolioItems/${item.id}`));
-      }
-      if (selectedCategory === catId) {
-        setSelectedCategory(categories.find(c => c.id !== catId)?.id || null);
-      }
-    }
-  };
-
-  const handleAddImage = async () => {
-    if (!selectedCategory || !title || !preview) return;
-    const id = Math.random().toString(36).substring(7);
-    await set(ref(database, `portfolioItems/${id}`), {
-      id,
-      title,
-      imageUrl: preview,
-      categoryId: selectedCategory,
-      createdAt: new Date().toISOString()
-    });
-    setTitle('');
-    setPreview(null);
-  };
-
-  const handleDeleteImage = async (itemId: string) => {
-    if (confirm('Delete this image?')) {
-      await remove(ref(database, `portfolioItems/${itemId}`));
-    }
-  };
-
-  const categoryItems = selectedCategory ? items.filter(item => item.categoryId === selectedCategory) : [];
 
   return (
     <div className="space-y-8">
-      {/* Category Management */}
-      <div className="bg-zinc-900 border border-white/5 p-8 rounded-3xl space-y-6">
-        <div className="flex items-center justify-between">
-          <h3 className="text-2xl font-black uppercase italic tracking-tighter">Portfolio Categories</h3>
-          <button
-            onClick={() => setShowAddCategory(!showAddCategory)}
-            className="px-6 py-2 bg-blue-600 rounded-lg font-black uppercase text-xs flex items-center gap-2 hover:bg-blue-700 transition-colors"
-          >
-            <Plus size={16} /> Add Category
-          </button>
-        </div>
-
-        <AnimatePresence>
-          {showAddCategory && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              className="overflow-hidden space-y-4"
-            >
-              <input
-                type="text"
-                placeholder="Category name (e.g., Banner, Avatar, Preview, Logo)"
-                value={newCategoryName}
-                onChange={e => setNewCategoryName(e.target.value)}
-                className="w-full bg-black p-4 rounded-xl outline-none border border-white/10 focus:border-blue-500/50 transition-colors"
-              />
-              <div className="flex gap-4">
-                <button
-                  onClick={handleAddCategory}
-                  disabled={!newCategoryName.trim()}
-                  className="flex-1 py-3 bg-blue-600 font-black uppercase rounded-xl text-xs disabled:opacity-50 transition-all"
-                >
-                  Create Category
-                </button>
-                <button
-                  onClick={() => setShowAddCategory(false)}
-                  className="flex-1 py-3 bg-zinc-800 font-black uppercase rounded-xl text-xs hover:bg-zinc-700 transition-all"
-                >
-                  Cancel
-                </button>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* Category List */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {categories.map(cat => (
-            <motion.button
-              key={cat.id}
-              onClick={() => setSelectedCategory(cat.id)}
-              whileHover={{ scale: 1.02 }}
-              className={`p-4 rounded-xl border text-left font-black uppercase text-xs transition-all flex items-center justify-between ${
-                selectedCategory === cat.id
-                  ? 'bg-blue-600/20 border-blue-500 text-blue-400'
-                  : 'bg-black border-white/10 text-zinc-400 hover:border-white/20'
-              }`}
-            >
-              <span>{cat.name}</span>
-              <button
-                onClick={e => { e.stopPropagation(); handleDeleteCategory(cat.id); }}
-                className="p-1 hover:bg-red-600/30 rounded transition-colors"
-              >
-                <Trash2 size={14} />
-              </button>
-            </motion.button>
-          ))}
-        </div>
-
-        {categories.length === 0 && (
-          <p className="text-center text-zinc-600 font-black uppercase text-xs py-4">No categories yet. Create one to get started!</p>
-        )}
+      <div className="bg-zinc-900 p-8 rounded-3xl space-y-4">
+        <input type="text" placeholder={t.admin.designTitle} value={title} onChange={e => setTitle(e.target.value)} className="w-full bg-black p-4 rounded-xl outline-none" />
+        <label className="block w-full h-48 border-2 border-dashed border-white/10 rounded-2xl cursor-pointer hover:bg-zinc-800 transition-all flex items-center justify-center overflow-hidden">
+          {preview ? <img src={preview} className="w-full h-full object-cover" /> : <Upload className="text-zinc-600" />}
+          <input type="file" className="hidden" accept="image/*" onChange={handleFile} />
+        </label>
+        <button onClick={handleAdd} className="w-full py-4 bg-blue-600 font-black uppercase rounded-xl">{t.admin.portfolioAdd}</button>
       </div>
-
-      {/* Image Upload */}
-      {selectedCategory && (
-        <div className="bg-zinc-900 border border-white/5 p-8 rounded-3xl space-y-6">
-          <h3 className="text-2xl font-black uppercase italic tracking-tighter">
-            Add Image to "{categories.find(c => c.id === selectedCategory)?.name || 'Category'}"
-          </h3>
-
-          <input
-            type="text"
-            placeholder="Image title"
-            value={title}
-            onChange={e => setTitle(e.target.value)}
-            className="w-full bg-black p-4 rounded-xl outline-none border border-white/10 focus:border-blue-500/50 transition-colors"
-          />
-
-          <label className="block w-full h-48 border-2 border-dashed border-white/10 rounded-2xl cursor-pointer hover:bg-zinc-800/50 transition-all flex items-center justify-center overflow-hidden">
-            {preview ? (
-              <img src={preview || "/placeholder.svg"} className="w-full h-full object-cover" alt="preview" />
-            ) : (
-              <div className="flex flex-col items-center gap-2">
-                <Upload className="text-zinc-600" size={32} />
-                <span className="text-[10px] font-black uppercase text-zinc-600">Click to upload image</span>
-              </div>
-            )}
-            <input type="file" className="hidden" accept="image/*" onChange={handleFile} />
-          </label>
-
-          <div className="flex gap-4">
-            <button
-              onClick={handleAddImage}
-              disabled={!title || !preview}
-              className="flex-1 py-4 bg-blue-600 font-black uppercase rounded-xl text-xs disabled:opacity-50 transition-all hover:bg-blue-700"
-            >
-              Upload Image
-            </button>
-            {preview && (
-              <button
-                onClick={() => setPreview(null)}
-                className="flex-1 py-4 bg-zinc-800 font-black uppercase rounded-xl text-xs hover:bg-zinc-700 transition-all"
-              >
-                Clear Preview
-              </button>
-            )}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {items.map(item => (
+          <div key={item.id} className="relative group rounded-xl overflow-hidden aspect-video">
+             <img src={item.imageUrl} className="w-full h-full object-cover" />
+             <button onClick={() => remove(ref(database, `portfolio/${item.id}`))} className="absolute top-2 right-2 p-2 bg-red-600 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 size={16} /></button>
           </div>
-        </div>
-      )}
-
-      {/* Image Grid */}
-      {selectedCategory && categoryItems.length > 0 && (
-        <div className="space-y-4">
-          <h3 className="text-xl font-black uppercase tracking-tighter italic">
-            {categoryItems.length} Image{categoryItems.length !== 1 ? 's' : ''} in "{categories.find(c => c.id === selectedCategory)?.name}"
-          </h3>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {categoryItems.map(item => (
-              <motion.div
-                key={item.id}
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="relative group rounded-xl overflow-hidden aspect-video"
-              >
-                <img src={item.imageUrl || "/placeholder.svg"} className="w-full h-full object-cover" alt={item.title} />
-                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/60 transition-colors flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100">
-                  <span className="text-[10px] font-black uppercase text-white text-center px-2">{item.title}</span>
-                </div>
-                <button
-                  onClick={() => handleDeleteImage(item.id)}
-                  className="absolute top-2 right-2 p-2 bg-red-600 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-700"
-                >
-                  <Trash2 size={16} />
-                </button>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      )}
+        ))}
+      </div>
     </div>
   );
 };
@@ -957,7 +688,7 @@ const UserModerationAdmin = () => {
       {users.map(u => (
         <div key={u.uid} className="bg-zinc-900 p-4 rounded-2xl flex justify-between items-center">
           <div className="flex items-center gap-4">
-            <img src={u.photoURL || "/placeholder.svg"} className="w-10 h-10 rounded-full" />
+            <img src={u.photoURL} className="w-10 h-10 rounded-full" />
             <div>
               <p className="font-bold">{u.displayName}</p>
               <p className="text-[10px] text-zinc-500 uppercase">{u.email}</p>
@@ -1045,7 +776,7 @@ const BroadcasterAdmin: React.FC<{ users: AppUserMetadata[] }> = ({ users }) => 
         <div className="flex flex-col md:flex-row gap-4 items-start">
           <label className="flex flex-col items-center justify-center w-40 h-28 border-2 border-dashed border-white/10 rounded-2xl cursor-pointer hover:bg-zinc-800 transition-all group relative overflow-hidden">
             {preview ? (
-              <img src={preview || "/placeholder.svg"} className="w-full h-full object-cover" />
+              <img src={preview} className="w-full h-full object-cover" />
             ) : (
               <>
                 <ImageIcon className="text-zinc-600 group-hover:text-blue-500 mb-1" size={20} />
@@ -1193,7 +924,7 @@ export default function App() {
                         <p className="text-zinc-500 text-sm leading-relaxed">{n.message}</p>
                         {n.imageUrl && (
                           <div className="mt-4 rounded-3xl overflow-hidden border border-white/5 aspect-video">
-                            <img src={n.imageUrl || "/placeholder.svg"} className="w-full h-full object-cover" alt="Notification attachment" />
+                            <img src={n.imageUrl} className="w-full h-full object-cover" alt="Notification attachment" />
                           </div>
                         )}
                         <div className="flex items-center justify-between pt-4 border-t border-white/5">
