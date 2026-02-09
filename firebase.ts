@@ -5,13 +5,13 @@ import { getDatabase } from "firebase/database";
 import { getStorage } from "firebase/storage";
 
 /**
- * FIREBASE CORS TROUBLESHOOTING (IMPORTANT):
- * If images fail to upload or load on your Vercel domain:
- * 1. Install Google Cloud SDK (gsutil).
- * 2. Create a 'cors.json' file with:
- *    [{"origin": ["*"], "method": ["GET", "POST", "PUT", "DELETE"], "maxAgeSeconds": 3600}]
+ * ELBEK DESIGN - PRODUCTION INFRASTRUCTURE FIX
+ * 
+ * To fix the "Infinite Loading" issue on Vercel:
+ * 1. Create a file named 'cors.json':
+ *    [{"origin": ["*"], "method": ["GET", "POST", "PUT", "DELETE", "HEAD"], "maxAgeSeconds": 3600}]
+ * 2. Install Google Cloud SDK (gsutil).
  * 3. Run: gsutil cors set cors.json gs://darian-electronics.firebasestorage.app
- * This fixes the net::ERR_FAILED and 'stuck loading' issues.
  */
 
 const firebaseConfig = {
@@ -36,7 +36,7 @@ export const signInWithGoogle = async () => {
     const result = await signInWithPopup(auth, googleProvider);
     return result.user;
   } catch (error) {
-    console.error("Auth error:", error);
+    console.error("Critical Auth Error:", error);
     throw error;
   }
 };
