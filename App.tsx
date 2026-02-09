@@ -1,14 +1,10 @@
 
+
+
 import React, { useState, useEffect, useMemo, useRef, createContext, useContext } from 'react';
 import { HashRouter as Router, Routes, Route, Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  Plus, User, ShoppingBag, Images, CheckCircle2, ChevronRight, LogOut, LogIn,
-  ShieldCheck, CreditCard, Check, Menu, X, Phone, Send, ArrowRight,
-  Bell, Trash2, ShieldAlert, Clock, ExternalLink, Image as ImageIcon,
-  Users, Layers, Megaphone, Upload, FileImage, Search, Gamepad2, Info, CreditCard as CardIcon,
-  Globe
-} from 'lucide-react';
+import { Plus, User, ShoppingBag, Images, CheckCircle2, ChevronRight, LogOut, LogIn, ShieldCheck, CreditCard, Check, Menu, X, Phone, Send, ArrowRight, Bell, Trash2, ShieldAlert, Clock, ExternalLink, ImageIcon, Users, Layers, Megaphone, Upload, FileImage, Search, Gamepad2, Info, CarIcon as CardIcon, Globe } from 'lucide-react';
 import { LoadingScreen } from './components/LoadingScreen';
 import { ProtectedImage } from './components/ProtectedImage';
 import { auth, signInWithGoogle, logout, database } from './firebase';
@@ -42,6 +38,74 @@ const NotificationBadge: React.FC<{ count: number }> = ({ count }) => {
     <span className="absolute -top-1 -right-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-bold text-white ring-2 ring-black">
       {count > 9 ? '9+' : count}
     </span>
+  );
+};
+
+// --- About Page Component ---
+
+const AboutPage: React.FC = () => {
+  const { t } = useTranslation();
+  
+  const aboutSections = [
+    {
+      title: "� Umumiy ma'lumot",
+      content: "Ushbu platforma ElbekDesign nomli professional IT & dizayn xizmatlari uchun mo'ljallangan. Sayt zamonaviy texnologiyalar asosida ishlab chiqilgan bo'lib, foydalanuvchilarga dizayn buyurtma berish, portfolio ko'rish, va buyurtma holatini kuzatish imkonini beradi.\n\nSayt React + Firebase + Telegram Bot integratsiyasi orqali ishlaydi va barcha jarayonlar avtomatlashtirilgan."
+    },
+    {
+      title: "� Foydalanuvchi jarayoni",
+      content: "1️⃣ Kirish (Login) - Foydalanuvchi saytga Google orqali kiradi. Har bir foydalanuvchi uchun shaxsiy profil yaratiladi. Buyurtmalar faqat login bo'lgandan keyin beriladi.\n\n2️⃣ Buyurtma berish jarayoni - Foydalanuvchi buyurtmani 5 bosqichda to'ldiradi: Shaxsiy ma'lumotlar, Dizayn turi tanlash, O'yin yoki loyiha tanlash, Qo'shimcha izoh, To'lovni tasdiqlash"
+    },
+    {
+      title: "� To'lov tizimi",
+      content: "Saytda ONLINE TO'LOV YO'Q. Saytning o'zida to'lov qilish imkoni yo'q. Bu ataylab shunday qilingan. Foydalanuvchi oldindan Paynet / Click / boshqa tizim orqali kartaga pul tashlaydi. Kartaga to'lov qilingach, foydalanuvchi saytga kirib buyurtma beradi va 'To'lov qildim' belgisini bosadi."
+    },
+    {
+      title: "� Telegram bot integratsiyasi",
+      content: "Foydalanuvchi buyurtmani yuborganda, buyurtma Firebase bazaga saqlanadi va shu zahoti Telegram bot orqali quyidagi ma'lumotlar yuboriladi: Buyurtma ID, Foydalanuvchi ismi, Telefon raqami, Telegram username, Tanlangan dizayn turlari, Umumiy summa, Izoh.\n\nBu buyurtmalarni Elbek Qoriyev shaxsan ko'rib chiqadi. Aloqa: +998 90 406 30 90"
+    },
+    {
+      title: "� Buyurtma holati",
+      content: "CHECKING – tekshirilmoqda\nCHECKED – ko'rib chiqildi\nAPPROVED – tasdiqlandi\n\nFoydalanuvchi bu holatlarni 'My Orders' bo'limida ko'ra oladi."
+    },
+    {
+      title: "�️ Admin panel",
+      content: "Admin (faqat egasi uchun) quyidagi imkoniyatlarga ega:\n� Barcha buyurtmalarni ko'rish\n� Buyurtma statusini o'zgartirish\n� Portfolio qo'shish / o'chirish\n� Foydalanuvchini bloklash\n� Telegram + sayt orqali xabar yuborish"
+    }
+  ];
+
+  return (
+    <div className="min-h-screen pt-32 pb-20 px-6 max-w-4xl mx-auto">
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mb-16">
+        <h1 className="text-5xl md:text-6xl font-black uppercase tracking-tighter italic mb-6">Sayt Haqida</h1>
+        <p className="text-zinc-500 text-lg font-semibold">ElbekDesign platformasi haqida to'liq malumot</p>
+      </motion.div>
+
+      <div className="space-y-8">
+        {aboutSections.map((section, idx) => (
+          <motion.div 
+            key={idx}
+            initial={{ opacity: 0, y: 20 }} 
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: idx * 0.1 }}
+            className="bg-zinc-900/50 border border-white/5 p-8 rounded-[2rem]"
+          >
+            <h2 className="text-2xl font-black uppercase italic mb-4 text-blue-500">{section.title}</h2>
+            <p className="text-zinc-400 leading-relaxed whitespace-pre-wrap">{section.content}</p>
+          </motion.div>
+        ))}
+      </div>
+
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }} 
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.6 }}
+        className="mt-16 bg-gradient-to-r from-blue-600/10 to-blue-500/5 border border-blue-500/20 p-10 rounded-[2rem] text-center"
+      >
+        <h3 className="text-2xl font-black uppercase tracking-tighter mb-4">Aloqa uchun</h3>
+        <p className="text-blue-400 text-xl font-black mb-2">+998 90 406 30 90</p>
+        <p className="text-zinc-500 text-sm">Barcha savollarga javob beriladi</p>
+      </motion.div>
+    </div>
   );
 };
 
@@ -154,7 +218,7 @@ const Navbar: React.FC<{
                   <span className="text-sm font-bold">{user.displayName}</span>
                   {user.isOwner && <span className="text-[10px] uppercase text-blue-500 font-black">Owner</span>}
                 </div>
-                <img src={user.photoURL} alt="profile" className="w-9 h-9 rounded-full ring-2 ring-blue-600" />
+                <img src={user.photoURL || "/placeholder.svg"} alt="profile" className="w-9 h-9 rounded-full ring-2 ring-blue-600" />
                 <button onClick={logout} className="p-2 text-zinc-500 hover:text-red-500 transition-colors"><LogOut size={18} /></button>
               </div>
             ) : (
@@ -657,7 +721,7 @@ const PortfolioManagerAdmin = () => {
       <div className="bg-zinc-900 p-8 rounded-3xl space-y-4">
         <input type="text" placeholder={t.admin.designTitle} value={title} onChange={e => setTitle(e.target.value)} className="w-full bg-black p-4 rounded-xl outline-none" />
         <label className="block w-full h-48 border-2 border-dashed border-white/10 rounded-2xl cursor-pointer hover:bg-zinc-800 transition-all flex items-center justify-center overflow-hidden">
-          {preview ? <img src={preview} className="w-full h-full object-cover" /> : <Upload className="text-zinc-600" />}
+          {preview ? <img src={preview || "/placeholder.svg"} className="w-full h-full object-cover" /> : <Upload className="text-zinc-600" />}
           <input type="file" className="hidden" accept="image/*" onChange={handleFile} />
         </label>
         <button onClick={handleAdd} className="w-full py-4 bg-blue-600 font-black uppercase rounded-xl">{t.admin.portfolioAdd}</button>
@@ -665,7 +729,7 @@ const PortfolioManagerAdmin = () => {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {items.map(item => (
           <div key={item.id} className="relative group rounded-xl overflow-hidden aspect-video">
-             <img src={item.imageUrl} className="w-full h-full object-cover" />
+             <img src={item.imageUrl || "/placeholder.svg"} className="w-full h-full object-cover" />
              <button onClick={() => remove(ref(database, `portfolio/${item.id}`))} className="absolute top-2 right-2 p-2 bg-red-600 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 size={16} /></button>
           </div>
         ))}
@@ -688,7 +752,7 @@ const UserModerationAdmin = () => {
       {users.map(u => (
         <div key={u.uid} className="bg-zinc-900 p-4 rounded-2xl flex justify-between items-center">
           <div className="flex items-center gap-4">
-            <img src={u.photoURL} className="w-10 h-10 rounded-full" />
+            <img src={u.photoURL || "/placeholder.svg"} className="w-10 h-10 rounded-full" />
             <div>
               <p className="font-bold">{u.displayName}</p>
               <p className="text-[10px] text-zinc-500 uppercase">{u.email}</p>
@@ -776,7 +840,7 @@ const BroadcasterAdmin: React.FC<{ users: AppUserMetadata[] }> = ({ users }) => 
         <div className="flex flex-col md:flex-row gap-4 items-start">
           <label className="flex flex-col items-center justify-center w-40 h-28 border-2 border-dashed border-white/10 rounded-2xl cursor-pointer hover:bg-zinc-800 transition-all group relative overflow-hidden">
             {preview ? (
-              <img src={preview} className="w-full h-full object-cover" />
+              <img src={preview || "/placeholder.svg"} className="w-full h-full object-cover" />
             ) : (
               <>
                 <ImageIcon className="text-zinc-600 group-hover:text-blue-500 mb-1" size={20} />
@@ -893,6 +957,65 @@ export default function App() {
                     </div>
                   </motion.div>
                 </section>
+
+                <section className="px-6 py-20 max-w-6xl mx-auto">
+                  <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
+                    <div className="space-y-6">
+                      <h2 className="text-4xl md:text-5xl font-black uppercase italic tracking-tighter leading-tight">
+                        ElbekDesign
+                        <br />
+                        <span className="text-blue-500">Haqida</span>
+                      </h2>
+                      <p className="text-zinc-400 leading-relaxed text-sm md:text-base">
+                        Ushbu platforma professional IT & dizayn xizmatlari uchun mo'ljallangan. Sayt zamonaviy texnologiyalar asosida ishlab chiqilgan bo'lib, foydalanuvchilarga dizayn buyurtma berish, portfolio ko'rish, va buyurtma holatini kuzatish imkonini beradi.
+                      </p>
+                      <div className="space-y-2 text-sm text-zinc-500">
+                        <p>✓ React + Firebase integratsiyasi</p>
+                        <p>✓ Telegram bot bilan avtomatik xabarlar</p>
+                        <p>✓ Shaxsiy profil va buyurtma holati</p>
+                        <p>✓ Professional portfolio galereya</p>
+                      </div>
+                      <Link to="/about" className="group inline-flex items-center gap-2 px-8 py-4 bg-blue-600 text-white font-black rounded-2xl hover:bg-blue-700 transition-all uppercase text-sm tracking-widest">
+                        To'liq Ma'lumot <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
+                      </Link>
+                    </div>
+                    <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.2 }} className="bg-gradient-to-br from-blue-600/10 to-blue-500/5 border border-blue-500/20 p-8 rounded-[2rem] space-y-6">
+                      <div className="space-y-3">
+                        <div className="flex items-start gap-4">
+                          <div className="w-12 h-12 bg-blue-600/20 rounded-xl flex items-center justify-center flex-shrink-0">
+                            <Info size={24} className="text-blue-500" />
+                          </div>
+                          <div>
+                            <h4 className="font-black text-sm uppercase mb-1">Zamonaviy Texnologiya</h4>
+                            <p className="text-xs text-zinc-500">React, Firebase va Telegram integratsiyasi</p>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="space-y-3">
+                        <div className="flex items-start gap-4">
+                          <div className="w-12 h-12 bg-blue-600/20 rounded-xl flex items-center justify-center flex-shrink-0">
+                            <CheckCircle2 size={24} className="text-blue-500" />
+                          </div>
+                          <div>
+                            <h4 className="font-black text-sm uppercase mb-1">Oson Ish Jarayoni</h4>
+                            <p className="text-xs text-zinc-500">5 bosqichli buyurtma formasi</p>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="space-y-3">
+                        <div className="flex items-start gap-4">
+                          <div className="w-12 h-12 bg-blue-600/20 rounded-xl flex items-center justify-center flex-shrink-0">
+                            <ShieldCheck size={24} className="text-blue-500" />
+                          </div>
+                          <div>
+                            <h4 className="font-black text-sm uppercase mb-1">Xavfsiz Tizim</h4>
+                            <p className="text-xs text-zinc-500">Google login va bazaga saqlash</p>
+                          </div>
+                        </div>
+                      </div>
+                    </motion.div>
+                  </motion.div>
+                </section>
               </div>
             } />
             
@@ -904,6 +1027,7 @@ export default function App() {
             )} />
 
             <Route path="/portfolio" element={<Portfolio />} />
+            <Route path="/about" element={<AboutPage />} />
             <Route path="/my-orders" element={user ? <MyOrdersPage user={user} /> : <div className="pt-40 text-center font-black uppercase text-zinc-800">Please Sign In</div>} />
             <Route path="/admin" element={<AdminDashboard user={user} />} />
           </Routes>
@@ -924,7 +1048,7 @@ export default function App() {
                         <p className="text-zinc-500 text-sm leading-relaxed">{n.message}</p>
                         {n.imageUrl && (
                           <div className="mt-4 rounded-3xl overflow-hidden border border-white/5 aspect-video">
-                            <img src={n.imageUrl} className="w-full h-full object-cover" alt="Notification attachment" />
+                            <img src={n.imageUrl || "/placeholder.svg"} className="w-full h-full object-cover" alt="Notification attachment" />
                           </div>
                         )}
                         <div className="flex items-center justify-between pt-4 border-t border-white/5">
