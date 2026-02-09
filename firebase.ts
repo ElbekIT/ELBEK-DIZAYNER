@@ -1,8 +1,18 @@
 
 import { initializeApp } from "firebase/app";
-import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "firebase/auth";
-import { getDatabase, ref, set, push, onValue, get } from "firebase/database";
+import { getAuth, GoogleAuthProvider, signInWithPopup, signOut } from "firebase/auth";
+import { getDatabase } from "firebase/database";
 import { getStorage } from "firebase/storage";
+
+/**
+ * FIREBASE CORS TROUBLESHOOTING (IMPORTANT):
+ * If images fail to upload or load on your Vercel domain:
+ * 1. Install Google Cloud SDK (gsutil).
+ * 2. Create a 'cors.json' file with:
+ *    [{"origin": ["*"], "method": ["GET", "POST", "PUT", "DELETE"], "maxAgeSeconds": 3600}]
+ * 3. Run: gsutil cors set cors.json gs://darian-electronics.firebasestorage.app
+ * This fixes the net::ERR_FAILED and 'stuck loading' issues.
+ */
 
 const firebaseConfig = {
   apiKey: "AIzaSyAGSvG6gqUz198-Y7NMLKq8dnYRmLPE7-o",

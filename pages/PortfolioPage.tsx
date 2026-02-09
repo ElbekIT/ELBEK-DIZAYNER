@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { ImageIcon } from 'lucide-react';
+import { ImageIcon, AlertCircle } from 'lucide-react';
 import { ref, onValue, off } from 'firebase/database';
 import { database } from '../firebase';
 import { PortfolioItem } from '../types';
@@ -12,23 +12,33 @@ export const PortfolioPage = () => {
   const { t } = useApp();
   const [items, setItems] = useState<PortfolioItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
 
   useEffect(() => {
-    // Explicitly fetch from RTDB. Publicly accessible metadata.
+    // PUBLIC READ ACCESS: No auth check required here for viewing
     const pRef = ref(database, 'portfolio');
-    const unsub = onValue(pRef, (s) => {
-      const data = s.val();
-      if (data) {
-        const sorted = Object.keys(data)
-          .map(k => ({ ...data[k], id: k }))
-          .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-        setItems(sorted as PortfolioItem[]);
-      } else {
-        setItems([]);
+    
+    const unsub = onValue(pRef, (snapshot) => {
+      try {
+        const data = snapshot.val();
+        if (data) {
+          const sorted = Object.keys(data)
+            .map(k => ({ ...data[k], id: k }))
+            .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+          setItems(sorted as PortfolioItem[]);
+        } else {
+          setItems([]);
+        }
+        setError(false);
+      } catch (err) {
+        console.error("Data parse error:", err);
+        setError(true);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     }, (err) => {
-      console.error("Portfolio fetch error:", err);
+      console.error("Firebase Database read error:", err);
+      setError(true);
       setLoading(false);
     });
 
@@ -51,6 +61,11 @@ export const PortfolioPage = () => {
       {loading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
           {[1,2,3,4,5,6].map(i => <div key={i} className="aspect-video bg-zinc-900 animate-pulse rounded-[3rem]" />)}
+        </div>
+      ) : error ? (
+        <div className="text-center py-40 bg-rose-500/5 rounded-[4rem] border border-rose-500/10">
+           <AlertCircle size={60} className="mx-auto text-rose-500 mb-6" />
+           <p className="text-rose-500 font-black uppercase tracking-widest text-sm italic">Failed to sync with the vault. Please refresh.</p>
         </div>
       ) : items.length === 0 ? (
         <div className="text-center py-40 border-2 border-dashed border-white/5 rounded-[4rem]">

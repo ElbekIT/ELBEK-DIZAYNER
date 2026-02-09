@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Navigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Loader2, Trash2, ImageIcon, Smartphone, Bell, Clock, ShieldAlert } from 'lucide-react';
+import { Loader2, Trash2, ImageIcon, Smartphone, Bell, Clock, ShieldAlert, X } from 'lucide-react';
 import { ref, onValue, off, set, update, remove } from 'firebase/database';
 import { ref as sRef, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { database, storage } from '../firebase';
@@ -119,14 +119,28 @@ const PortfolioAdminManager = () => {
     if (!title || !file) return;
     setLoading(true);
     try {
-      const id = Math.random().toString(36).substring(7);
+      const id = `${Date.now()}-${Math.random().toString(36).substring(7)}`;
       const storageRef = sRef(storage, `portfolio/${id}`);
+      
+      // Attempt upload - will fail if CORS is not configured on Firebase
       await uploadBytes(storageRef, file);
       const url = await getDownloadURL(storageRef);
-      await set(ref(database, `portfolio/${id}`), { title, imageUrl: url, createdAt: new Date().toISOString() });
-      setTitle(''); setFile(null); setPreview(null);
-    } catch(e) { 
-      alert("Critical Error during upload."); 
+      
+      // Save metadata to RTDB
+      await set(ref(database, `portfolio/${id}`), { 
+        title, 
+        imageUrl: url, 
+        createdAt: new Date().toISOString() 
+      });
+      
+      // Reset State
+      setTitle(''); 
+      setFile(null); 
+      setPreview(null);
+      alert("Asset deployed to gallery successfully.");
+    } catch(e: any) { 
+      console.error("Upload Error:", e);
+      alert(`Critical Error: ${e.message || "Unknown error during upload. Check console for CORS details."}`);
     } finally { 
       setLoading(false); 
     }
@@ -135,27 +149,65 @@ const PortfolioAdminManager = () => {
   const handleDelete = async (item: PortfolioItem) => {
     if (!confirm("Terminate this artwork from the vault?")) return;
     try {
+      // Manual deletion logic: First remove from database, then storage
       await remove(ref(database, `portfolio/${item.id}`));
-      await deleteObject(sRef(storage, `portfolio/${item.id}`));
-    } catch(e) { console.error(e); }
+      try {
+        await deleteObject(sRef(storage, `portfolio/${item.id}`));
+      } catch (e) {
+        console.warn("Storage file might have already been deleted or missing:", e);
+      }
+    } catch(e) { 
+      console.error(e); 
+      alert("Failed to delete record.");
+    }
   };
 
   return (
     <div className="space-y-20">
       <div className="max-w-xl mx-auto bg-zinc-900/50 p-12 rounded-[4rem] border border-white/5 shadow-2xl space-y-8">
         <h3 className="text-4xl font-black uppercase italic tracking-tighter text-center">VAULT INGESTION</h3>
-        <input type="text" placeholder="Design Title" value={title} onChange={e => setTitle(e.target.value)} className="w-full bg-black border border-white/5 p-6 rounded-3xl outline-none font-black text-xs uppercase focus:border-blue-500 transition-all" />
+        <input 
+          type="text" 
+          placeholder="Design Title" 
+          value={title} 
+          onChange={e => setTitle(e.target.value)} 
+          className="w-full bg-black border border-white/5 p-6 rounded-3xl outline-none font-black text-xs uppercase focus:border-blue-500 transition-all" 
+        />
         <label className="block w-full aspect-video border-2 border-dashed border-white/10 rounded-[3rem] cursor-pointer hover:bg-white/5 transition-all overflow-hidden flex items-center justify-center relative group">
-          {preview ? <img src={preview} className="w-full h-full object-cover" alt="Preview" /> : <div className="text-center opacity-30 group-hover:opacity-100 transition-opacity"><ImageIcon size={48} className="mx-auto mb-4" /><span className="text-[10px] font-black uppercase">Choose Imagery</span></div>}
-          <input type="file" className="hidden" accept="image/*" onChange={e => {
-            const f = e.target.files?.[0];
-            if (f) {
-              setFile(f);
-              const r = new FileReader();
-              r.onload = (re) => setPreview(re.target?.result as string);
-              r.readAsDataURL(f);
-            }
-          }} />
+          {preview ? (
+            <div className="relative w-full h-full">
+              <img src={preview} className="w-full h-full object-cover" alt="Preview" />
+              <button 
+                onClick={(e) => {
+                  e.preventDefault();
+                  setFile(null);
+                  setPreview(null);
+                }}
+                className="absolute top-4 right-4 p-2 bg-black/60 rounded-xl text-white hover:bg-rose-600 transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
+          ) : (
+            <div className="text-center opacity-30 group-hover:opacity-100 transition-opacity">
+              <ImageIcon size={48} className="mx-auto mb-4" />
+              <span className="text-[10px] font-black uppercase tracking-widest">Choose Imagery</span>
+            </div>
+          )}
+          {!preview && <input 
+            type="file" 
+            className="hidden" 
+            accept="image/*" 
+            onChange={e => {
+              const f = e.target.files?.[0];
+              if (f) {
+                setFile(f);
+                const r = new FileReader();
+                r.onload = (re) => setPreview(re.target?.result as string);
+                r.readAsDataURL(f);
+              }
+            }} 
+          />}
         </label>
         <button 
           disabled={loading || !title || !file} 
@@ -165,6 +217,7 @@ const PortfolioAdminManager = () => {
           {loading ? <Loader2 className="animate-spin" /> : 'SECURE IN VAULT'}
         </button>
       </div>
+
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
         {items.map(i => (
           <div key={i.id} className="group relative aspect-video rounded-[2.5rem] overflow-hidden border border-white/5 shadow-xl">
@@ -201,6 +254,7 @@ const BroadcastManager = ({ users }: { users: AppUserMetadata[] }) => {
       const path = target === 'global' ? `notifications/global/${id}` : `notifications/private/${target}/${id}`;
       await set(ref(database, path), { id, title, message: msg, attachmentUrl, type: target === 'global' ? 'global' : 'private', targetUid: target === 'global' ? null : target, createdAt: new Date().toISOString() });
       setTitle(''); setMsg(''); setFile(null);
+      alert("Intel transmitted successfully.");
     } catch(e) { console.error(e); }
     finally { setLoading(false); }
   };
