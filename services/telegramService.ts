@@ -1,77 +1,61 @@
 
-import { Order } from '../types';
 import { TELEGRAM_CONFIG } from '../constants';
+import { Order } from '../types';
 
 /**
- * Sends order details to the specified Telegram Admin ID via the Bot API.
+ * Sends order notifications to a Telegram bot.
+ * Uses a GET request with URL parameters to bypass CORS preflight restrictions
+ * that often block JSON POST requests from the browser to the Telegram API.
  */
 export const sendOrderToTelegram = async (order: Order) => {
-  const message = `
-🚀 *Yangi Buyurtma! (Elbek Design)*
------------------------------
-👤 *Mijoz:* ${order.firstName} ${order.lastName || ''}
-📞 *Tel:* ${order.phoneNumber}
-📱 *Telegram:* ${order.telegramUsername}
-🎮 *O'yin:* ${order.game}
-🎨 *Turi:* ${order.designTypes?.join(', ')}
-💰 *Narxi:* ${order.totalPrice?.toLocaleString()} UZS
-🎟️ *Promokod:* ${order.promoCode || 'Yo\'q'}
-📅 *Sana:* ${new Date(order.createdAt).toLocaleString('uz-UZ', { timeZone: 'Asia/Tashkent' })}
+  // Helper to escape characters that might break the URL or Telegram HTML parsing
+  const escapeHTML = (str: string = '') => 
+    str.replace(/[&<>"']/g, (m) => ({
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#039;'
+    })[m] || m);
 
-📝 *Xabar:*
-_${order.message || 'Tavsif yo\'q'}_
+  const messageText = `
+🚀 <b>New Order from Elbek Design!</b>
 -----------------------------
-✅ Holat: Tekshirilmoqda
+👤 <b>User:</b> ${escapeHTML(order.firstName)} ${escapeHTML(order.lastName || '')}
+📧 <b>Email:</b> ${escapeHTML(order.userEmail)}
+📞 <b>Phone:</b> ${escapeHTML(order.phoneNumber)}
+📱 <b>Telegram:</b> ${escapeHTML(order.telegramUsername)}
+🎮 <b>Game:</b> ${escapeHTML(order.game)}
+🎨 <b>Designs:</b> ${escapeHTML(order.designTypes?.join(', ') || 'None')}
+💰 <b>Total Price:</b> ${order.totalPrice?.toLocaleString() || 0} UZS
+🎟️ <b>Promo:</b> ${escapeHTML(order.promoCode || 'None')}
+📅 <b>Date:</b> ${new Date(order.createdAt).toLocaleString()}
+
+📝 <b>Message:</b>
+<i>${escapeHTML(order.message || 'No description provided')}</i>
+-----------------------------
+✅ Status: Checking
   `.trim();
 
-  return sendMessage(message);
-};
-
-/**
- * Sends cancellation details to the specified Telegram Admin ID.
- */
-export const sendCancellationToTelegram = async (order: Order, reason: string) => {
-  const message = `
-❌ *Buyurtma Bekor Qilindi!*
------------------------------
-🆔 *Order ID:* ${order.id}
-👤 *Mijoz:* ${order.firstName} ${order.lastName || ''}
-📞 *Tel:* ${order.phoneNumber}
-💰 *Qiymati:* ${order.totalPrice?.toLocaleString()} UZS
-
-⚠️ *Bekor qilish sababi:*
-_${reason}_
------------------------------
-📅 Sana: ${new Date().toLocaleString('uz-UZ', { timeZone: 'Asia/Tashkent' })}
-  `.trim();
-
-  return sendMessage(message);
-};
-
-async function sendMessage(text: string) {
   try {
-    const url = `https://api.telegram.org/bot${TELEGRAM_CONFIG.BOT_TOKEN}/sendMessage`;
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        chat_id: TELEGRAM_CONFIG.ADMIN_ID,
-        text: text,
-        parse_mode: 'Markdown',
-      }),
+    // Using GET request to avoid CORS preflight (OPTIONS) issues with api.telegram.org
+    const url = new URL(`https://api.telegram.org/bot${TELEGRAM_CONFIG.BOT_TOKEN}/sendMessage`);
+    url.searchParams.append('chat_id', TELEGRAM_CONFIG.ADMIN_ID);
+    url.searchParams.append('text', messageText);
+    url.searchParams.append('parse_mode', 'HTML');
+
+    // We use 'no-cors' mode to ensure the request is dispatched even if the browser 
+    // can't read the response due to Telegram's CORS policy.
+    const response = await fetch(url.toString(), { 
+      method: 'GET',
+      mode: 'no-cors' 
     });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      console.error("Telegram API Error:", errorData);
-      return false;
-    }
-
+    
+    // Note: with 'no-cors', response.ok will be false and response.status will be 0,
+    // but the request is actually sent to the server.
     return true;
   } catch (error) {
-    console.error("Failed to send Telegram notification:", error);
+    console.error("Telegram notify network error:", error);
     return false;
   }
-}
+};

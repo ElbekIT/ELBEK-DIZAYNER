@@ -2,8 +2,7 @@
 export enum OrderStatus {
   CHECKING = 'Checking',
   CHECKED = 'Checked',
-  APPROVED = 'Approved',
-  CANCELLED = 'Cancelled'
+  APPROVED = 'Approved'
 }
 
 export interface Order {
@@ -23,12 +22,6 @@ export interface Order {
   promoCode?: string;
   status: OrderStatus;
   createdAt: string;
-  cancelReason?: string;
-}
-
-export interface WorkingHours {
-  start: string; // HH:mm format
-  end: string;   // HH:mm format
 }
 
 export interface UserProfile {
@@ -51,7 +44,6 @@ export interface Notification {
   title: string;
   message: string;
   imageUrl?: string;
-  attachmentUrl?: string; // For files/images
   link?: string;
   createdAt: string;
   type: 'global' | 'private';

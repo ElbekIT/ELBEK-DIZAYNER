@@ -1,18 +1,7 @@
 
 import { initializeApp } from "firebase/app";
-import { getAuth, GoogleAuthProvider, signInWithPopup, signOut } from "firebase/auth";
-import { getDatabase } from "firebase/database";
-import { getStorage } from "firebase/storage";
-
-/**
- * ELBEK DESIGN - PRODUCTION INFRASTRUCTURE FIX
- * 
- * To fix the "Infinite Loading" issue on Vercel:
- * 1. Create a file named 'cors.json':
- *    [{"origin": ["*"], "method": ["GET", "POST", "PUT", "DELETE", "HEAD"], "maxAgeSeconds": 3600}]
- * 2. Install Google Cloud SDK (gsutil).
- * 3. Run: gsutil cors set cors.json gs://darian-electronics.firebasestorage.app
- */
+import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "firebase/auth";
+import { getDatabase, ref, set, push, onValue, get } from "firebase/database";
 
 const firebaseConfig = {
   apiKey: "AIzaSyAGSvG6gqUz198-Y7NMLKq8dnYRmLPE7-o",
@@ -28,7 +17,6 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const database = getDatabase(app);
-export const storage = getStorage(app);
 export const googleProvider = new GoogleAuthProvider();
 
 export const signInWithGoogle = async () => {
@@ -36,7 +24,7 @@ export const signInWithGoogle = async () => {
     const result = await signInWithPopup(auth, googleProvider);
     return result.user;
   } catch (error) {
-    console.error("Critical Auth Error:", error);
+    console.error("Auth error:", error);
     throw error;
   }
 };
